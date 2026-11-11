@@ -1,7 +1,7 @@
 ---
 ---
 
-# 🏛️ Architektonická a Gastro Florencie: Kompletní přehled bodů
+# 🏛️ výlet do Florencie: Kompletní přehled
 
 Tento přehled obsahuje všechny klíčové architektonické milníky (od zrodu renesance přes manýrismus až po modernu a brutalismus), vyhlídky, bleší trhy a rodinné gastro zastávky rozdělené podle logiky návštěvy.
 
