@@ -1,0 +1,3455 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <title>SacraGeo – Historicko-geometrická analýza sakrálních staveb</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            gis: {
+              950: '#090d16',
+              900: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+              600: '#475569',
+              accent: '#f59e0b',
+              cyan: '#06b6d4',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #090d16;
+      color: #f8fafc;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      height: 100vh;
+      min-height: 500px;
+      position: relative;
+      z-index: 1;
+      background: #f1f5f9;
+    }
+
+    /* Decentní světlý kartografický filtr pro výchozí OpenTopoMap, aby vynikly geometrické obrazce */
+    .topo-subtle-tiles {
+      filter: brightness(1.06) saturate(0.45) contrast(0.95);
+    }
+
+    /* Posuvníky v panelu */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: #334155;
+      height: 6px;
+      border-radius: 999px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      margin-top: -5px;
+      background-color: #f59e0b;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border: 1px solid #334155;
+      border-radius: 12px !important;
+      box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.7) !important;
+    }
+    .leaflet-popup-tip {
+      background: #0f172a !important;
+      border: 1px solid #334155;
+    }
+    .leaflet-control-attribution {
+      background: rgba(15, 23, 42, 0.85) !important;
+      color: #94a3b8 !important;
+      font-size: 11px !important;
+    }
+    .leaflet-control-attribution a {
+      color: #38bdf8 !important;
+    }
+    .leaflet-control-scale-line {
+      background: rgba(15, 23, 42, 0.85) !important;
+      border-color: #64748b !important;
+      color: #e2e8f0 !important;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .pattern-card-active {
+      border-color: #f59e0b !important;
+      background-color: rgba(245, 158, 11, 0.14) !important;
+    }
+
+    @keyframes pulseRing {
+      0% { transform: scale(0.8); opacity: 0.9; }
+      100% { transform: scale(2.3); opacity: 0; }
+    }
+    .marker-pulse {
+      animation: pulseRing 1.8s infinite ease-out;
+    }
+  </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen w-screen overflow-hidden select-none">
+
+  <!-- Mobilní přepínač panelu -->
+  <button id="mobileToggleBtn" class="md:hidden fixed top-3 left-3 z-[1001] bg-gis-900/95 border border-gis-700 text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-medium backdrop-blur">
+    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    <span>Nástroje & Filtry</span>
+  </button>
+
+  <!-- LEVÝ ANALYTICKÝ GIS PANEL -->
+  <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-[1000] w-full sm:w-[380px] md:w-[380px] bg-gis-900 border-r border-gis-700/80 flex flex-col h-full transition-transform duration-300 transform -translate-x-full md:translate-x-0 shadow-2xl">
+    
+    <!-- Hlavička -->
+    <div class="p-3.5 px-4 border-b border-gis-800 bg-gis-950/70 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polygon points="12 2 20.66 17 3.34 17 12 2" />
+            <polygon points="12 22 20.66 7 3.34 7 12 22" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-bold text-base tracking-tight text-white flex items-center gap-2">
+            SacraGeo <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">do r. 1800</span>
+          </h1>
+          <p class="text-[11px] text-slate-400">Praha & Střední Čechy • Geometrie, řády & patrocinia</p>
+        </div>
+      </div>
+      <button id="closeSidebarMobile" class="md:hidden p-2 text-slate-400 hover:text-white rounded-lg">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Navigační záložky -->
+    <div class="grid grid-cols-4 border-b border-gis-800 bg-gis-950/40 text-xs font-medium shrink-0">
+      <button data-tab="data" class="tab-btn active py-2.5 px-2 text-center border-b-2 border-amber-500 text-amber-400 bg-gis-800/40 transition">
+        1. Data & Filtry
+      </button>
+      <button data-tab="detect" class="tab-btn py-2.5 px-2 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+        2. Vzorce
+      </button>
+      <button data-tab="results" class="tab-btn py-2.5 px-2 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition relative">
+        3. Výsledky
+        <span id="resultsBadge" class="hidden ml-1 px-1.5 py-0.2 text-[10px] font-mono rounded-full bg-amber-500 text-gis-950 font-bold">0</span>
+      </button>
+      <button data-tab="stats" class="tab-btn py-2.5 px-2 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+        4. Ověření
+      </button>
+    </div>
+
+    <!-- Obsah záložek (scrollovatelný) -->
+    <div class="flex-1 overflow-y-auto p-3.5 space-y-3.5 select-text">
+
+      <!-- ==================== ZÁLOŽKA 1: DATA & FILTRY ==================== -->
+      <div id="tab-data" class="tab-content space-y-3.5">
+        
+        <!-- Zdroje dat a rychlé výřezy -->
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Databáze (do konce 18. stol.)</h2>
+            <span id="activeCountBadge" class="text-xs font-mono bg-gis-950 px-2 py-0.5 rounded text-cyan-400 border border-gis-700">0 / 0 staveb</span>
+          </div>
+
+          <!-- Rychlé prostorové presety -->
+          <div class="space-y-1.5">
+            <p class="text-[11px] text-slate-400">Rychlé předvolby oblastí a historických celků:</p>
+            <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+              <button data-region="stredni-cechy" class="region-btn px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-200 border border-gis-700 rounded-lg text-left truncate transition">
+                Celé Střední Čechy
+              </button>
+              <button data-region="praha-okoli" class="region-btn px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-200 border border-gis-700 rounded-lg text-left truncate transition">
+                Praha – historické jádro
+              </button>
+              <button data-region="karlovsky-kriz" class="region-btn px-2 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 rounded-lg text-left truncate transition">
+                ✝️ Karlovský kříž (Praha)
+              </button>
+              <button data-region="brandys-boleslav" class="region-btn px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-200 border border-gis-700 rounded-lg text-left truncate transition">
+                Brandýs & Stará Boleslav
+              </button>
+              <button data-region="kourim-kolin" class="region-btn px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-200 border border-gis-700 rounded-lg text-left truncate transition">
+                Kouřimsko & Kolínsko
+              </button>
+              <button data-region="posazavi" class="region-btn px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-200 border border-gis-700 rounded-lg text-left truncate transition">
+                Sázavsko & Posázaví
+              </button>
+              <button data-region="karlstejn-tetin" class="region-btn px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-200 border border-gis-700 rounded-lg text-left truncate transition">
+                Karlštejnsko & Tetínsko
+              </button>
+              <button data-region="budec-slany" class="region-btn px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-200 border border-gis-700 rounded-lg text-left truncate transition">
+                Budečsko & Slánsko
+              </button>
+            </div>
+          </div>
+
+          <!-- Správa dat: Reset / Import / Export / Přidat bod -->
+          <div class="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gis-700/50 text-[11px]">
+            <button id="loadPresetBtn" class="px-2 py-1.5 bg-gis-700 hover:bg-gis-600 text-white rounded-lg font-medium transition flex items-center justify-center gap-1 border border-gis-600" title="Obnovit výchozí databázi 122 kostelů">
+              <span>🏛️</span> Reset DB
+            </button>
+            <label class="px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-300 border border-gis-700 rounded-lg font-medium transition flex items-center justify-center gap-1 cursor-pointer" title="Importovat vlastní CSV nebo GeoJSON">
+              <span>📂</span> Import
+              <input type="file" id="fileImportInput" accept=".csv,.geojson,.json" class="hidden" />
+            </label>
+            <button id="exportDbMenuBtn" class="px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-slate-300 border border-gis-700 rounded-lg font-medium transition flex items-center justify-center gap-1" title="Uložit databázi do souboru">
+              <span>💾</span> Export
+            </button>
+            <button id="toggleAddPointBtn" class="px-2 py-1.5 bg-gis-900 hover:bg-gis-800 text-amber-300 border border-amber-500/40 rounded-lg font-medium transition flex items-center justify-center gap-1" title="Vložit novou stavbu kliknutím do mapy">
+              <span>📍</span> + Bod
+            </button>
+          </div>
+        </div>
+
+        <!-- IMPORT Z OPENSTREETMAP (OVERPASS API) S VOLITELNÝM SPÁROVÁNÍM -->
+        <div class="bg-gis-800/50 border border-cyan-500/35 rounded-xl p-3 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-cyan-300">Import z OpenStreetMap (výřez mapy)</h2>
+            <span class="text-[10px] font-mono text-slate-400">Overpass API</span>
+          </div>
+
+          <div class="grid grid-cols-1 gap-1.5">
+            <button id="fetchOsmBtn" class="w-full py-2 px-3 bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-200 border border-cyan-500/50 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-2">
+              <svg id="osmSpinner" class="hidden w-4 h-4 animate-spin text-cyan-300" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+              <span>🌍 Načíst kostely z OSM výřezu</span>
+            </button>
+          </div>
+
+          <div class="space-y-1.5 pt-1 text-[11px] text-slate-300">
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" id="osmParseTagsChk" checked class="mt-0.5 accent-cyan-400" />
+              <span>Spárovat zasvěcení, řád a dataci z názvu a OSM tagů (<code class="text-[10px] text-slate-400">dedication, operator, start_date</code>)</span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" id="osmWikidataChk" class="mt-0.5 accent-amber-400" />
+              <span>Dohlédat dataci, sloh a řád z Wikidata API (pokud má OSM objekt tag <code class="text-[10px] text-slate-400">wikidata</code>)</span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" id="osmPre1800OnlyChk" class="mt-0.5 accent-amber-400" />
+              <span>Vyřadit stavby prokazatelně mladší než rok 1800</span>
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between gap-2 pt-1.5 border-t border-gis-700/60">
+            <div id="osmStatusText" class="text-[11px] text-slate-400 leading-snug flex-1">
+              Přibližte na okres/region (zoom &ge; 11) a načtěte další stavby z OSM.
+            </div>
+            <button id="enrichWikidataBtn" class="hidden shrink-0 px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-medium transition" title="Spustit dodatečné spárování z Wikidat u načtených OSM objektů">
+              ✨ Doplnit z Wikidat
+            </button>
+          </div>
+        </div>
+
+        <!-- Časová osa a stavební sloh (strop 1800) -->
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Doba vzniku (do r. 1800) & Sloh</h2>
+            <span id="yearRangeLabel" class="text-xs font-mono text-amber-400 font-semibold">880 – 1800</span>
+          </div>
+
+          <div class="space-y-2">
+            <div>
+              <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+                <span>Od: <strong id="minYearVal" class="text-slate-200 font-mono">880</strong></span>
+                <span>Do: <strong id="maxYearVal" class="text-slate-200 font-mono">1800</strong></span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <input type="range" id="minYearSlider" min="850" max="1800" step="10" value="880" class="w-full" />
+                <input type="range" id="maxYearSlider" min="850" max="1800" step="10" value="1800" class="w-full" />
+              </div>
+            </div>
+
+            <!-- Rychlé epochy -->
+            <div class="flex flex-wrap gap-1 pt-0.5">
+              <button data-epoch="850-1800" class="epoch-btn px-2 py-0.5 rounded text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/40">Vše do 1800</button>
+              <button data-epoch="850-1250" class="epoch-btn px-2 py-0.5 rounded text-[11px] bg-gis-900 text-slate-300 border border-gis-700 hover:border-slate-500">Do r. 1250 (Románské)</button>
+              <button data-epoch="1250-1520" class="epoch-btn px-2 py-0.5 rounded text-[11px] bg-gis-900 text-slate-300 border border-gis-700 hover:border-slate-500">1250–1520 (Gotika)</button>
+              <button data-epoch="1620-1795" class="epoch-btn px-2 py-0.5 rounded text-[11px] bg-gis-900 text-slate-300 border border-gis-700 hover:border-slate-500">1620–1795 (Baroko)</button>
+            </div>
+          </div>
+
+          <!-- Filtr slohů -->
+          <div class="pt-2 border-t border-gis-700/60 grid grid-cols-2 gap-1.5 text-[11px]">
+            <label class="flex items-center gap-2 bg-gis-900/80 px-2 py-1 rounded-lg border border-gis-700/60 cursor-pointer">
+              <input type="checkbox" class="style-filter accent-amber-500" value="románský" checked />
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+              <span>Románský</span>
+            </label>
+            <label class="flex items-center gap-2 bg-gis-900/80 px-2 py-1 rounded-lg border border-gis-700/60 cursor-pointer">
+              <input type="checkbox" class="style-filter accent-cyan-400" value="gotický" checked />
+              <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+              <span>Gotický</span>
+            </label>
+            <label class="flex items-center gap-2 bg-gis-900/80 px-2 py-1 rounded-lg border border-gis-700/60 cursor-pointer">
+              <input type="checkbox" class="style-filter accent-purple-400" value="renesanční" checked />
+              <span class="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block"></span>
+              <span>Renesanční</span>
+            </label>
+            <label class="flex items-center gap-2 bg-gis-900/80 px-2 py-1 rounded-lg border border-gis-700/60 cursor-pointer">
+              <input type="checkbox" class="style-filter accent-rose-500" value="barokní" checked />
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+              <span>Barokní</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- FILTR PODLE AFILIACE (ŘÁDY / CÍRKEVNÍ SPRÁVA) -->
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Afiliace (Řády & Kapituly)</h2>
+            <button id="resetAffiliationBtn" class="text-[11px] text-amber-400 hover:underline">Vybrat vše</button>
+          </div>
+          <div id="affiliationPillsContainer" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+            <!-- Dynamicky generované pilulky řádů s počty -->
+          </div>
+        </div>
+
+        <!-- FILTR PODLE ZASVĚCENÍ (PATROCINIA) -->
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Zasvěcení (Patrocinium)</h2>
+            <div class="flex items-center gap-2">
+              <input type="text" id="searchDedicationInput" placeholder="Hledat svatého..." class="bg-gis-950 border border-gis-700 rounded px-2 py-0.5 text-[11px] text-white placeholder-slate-500 w-28 focus:outline-none focus:border-amber-500" />
+              <button id="resetDedicationBtn" class="text-[11px] text-amber-400 hover:underline">Vše</button>
+            </div>
+          </div>
+          <div id="dedicationPillsContainer" class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+            <!-- Dynamicky generované pilulky zasvěcení s počty -->
+          </div>
+        </div>
+
+        <!-- Seznam aktivních bodů -->
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Vyfiltrované stavby</h3>
+            <input type="text" id="searchPointInput" placeholder="Název / obec..." class="bg-gis-950 border border-gis-700 rounded px-2 py-1 text-xs text-white placeholder-slate-500 w-36 focus:outline-none focus:border-amber-500" />
+          </div>
+          <div id="pointsListContainer" class="max-h-48 overflow-y-auto divide-y divide-gis-700/40 text-xs">
+            <!-- Dynamicky plněno -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ==================== ZÁLOŽKA 2: DETEKCE VZORCŮ ==================== -->
+      <div id="tab-detect" class="tab-content hidden space-y-3.5">
+        
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3.5 space-y-2.5">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Hledané geometrické útvary</h2>
+          
+          <div class="space-y-2 text-xs">
+            <label class="flex items-start gap-2.5 p-2 rounded-lg bg-gis-900/80 border border-gis-700/60 cursor-pointer hover:border-gis-600">
+              <input type="checkbox" id="chkLines" checked class="mt-0.5 accent-amber-500" />
+              <div>
+                <div class="font-semibold text-white">Přímky (Ley lines) s dálkovým protažením</div>
+                <div class="text-slate-400 text-[11px]">Kolineární řady 3 a více kostelů protažené geodeticky dál do krajiny.</div>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-2.5 p-2 rounded-lg bg-gis-900/80 border border-gis-700/60 cursor-pointer hover:border-gis-600">
+              <input type="checkbox" id="chkCrosses" checked class="mt-0.5 accent-amber-500" />
+              <div>
+                <div class="font-semibold text-white">Ortogonální kříže (90°)</div>
+                <div class="text-slate-400 text-[11px]">Dvě křížící se osy tvořené 4 stavbami (např. Karlovský kříž).</div>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-2.5 p-2 rounded-lg bg-gis-900/80 border border-gis-700/60 cursor-pointer hover:border-gis-600">
+              <input type="checkbox" id="chkTriangles" checked class="mt-0.5 accent-amber-500" />
+              <div>
+                <div class="font-semibold text-white">Rovnostranné a rovnoramenné trojúhelníky</div>
+                <div class="text-slate-400 text-[11px]">Trojice staveb se shodnými stranami nebo osovou symetrií.</div>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-2.5 p-2 rounded-lg bg-gis-900/80 border border-gis-700/60 cursor-pointer hover:border-gis-600">
+              <input type="checkbox" id="chkHexagrams" checked class="mt-0.5 accent-amber-500" />
+              <div>
+                <div class="font-semibold text-white">Hvězdy (Hexagramy)</div>
+                <div class="text-slate-400 text-[11px]">Dva protilehlé rovnostranné trojúhelníky se společným středem.</div>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-2.5 p-2 rounded-lg bg-gis-900/80 border border-gis-700/60 cursor-pointer hover:border-gis-600">
+              <input type="checkbox" id="chkCircles" checked class="mt-0.5 accent-amber-500" />
+              <div>
+                <div class="font-semibold text-white">Kružnice / Věnce (4+ staveb)</div>
+                <div class="text-slate-400 text-[11px]">Stavby ležící na obvodu jedné kružnice o daném poloměru.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Parametry a tolerance -->
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3.5 space-y-3">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Měřítko, Protažení & Tolerance</h2>
+
+          <!-- PROTAŽENÍ LINIÍ DO KRAJINY (0 - 100 km na každou stranu) -->
+          <div class="bg-amber-500/10 border border-amber-500/35 rounded-xl p-2.5 space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-amber-200 font-medium">Protažení linií na každou stranu:</span>
+              <span id="lineExtLabel" class="font-mono text-amber-400 font-bold">50 km</span>
+            </div>
+            <input type="range" id="lineExtSlider" min="0" max="100" step="5" value="50" class="w-full" />
+            <p class="text-[10px] text-slate-400">
+              Protáhne každou přímku geodeticky do krajiny (50 km na každou stranu = +100 km celkem).
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-300">Min. délka jádra:</span>
+                <span id="minSpanLabel" class="font-mono text-cyan-400 font-semibold">1.5 km</span>
+              </div>
+              <input type="range" id="minSpanSlider" min="0.4" max="8" step="0.1" value="1.5" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-slate-300">Max. délka jádra:</span>
+                <span id="maxSpanLabel" class="font-mono text-amber-400 font-semibold">12 km</span>
+              </div>
+              <input type="range" id="maxSpanSlider" min="1" max="30" step="0.5" value="12" class="w-full" />
+            </div>
+          </div>
+
+          <div class="pt-1 border-t border-gis-700/60 space-y-2.5">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300">Max. odchylka od přímky / kružnice:</span>
+                <span id="tolDistLabel" class="font-mono text-amber-400 font-semibold">80 m</span>
+              </div>
+              <input type="range" id="tolDistSlider" min="10" max="300" step="5" value="80" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300">Úhlová tolerance kříže (od 90°):</span>
+                <span id="tolAngleLabel" class="font-mono text-amber-400 font-semibold">± 1.5°</span>
+              </div>
+              <input type="range" id="tolAngleSlider" min="0.2" max="5.0" step="0.1" value="1.5" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300">Tolerance stran trojúhelníku:</span>
+                <span id="tolTriLabel" class="font-mono text-amber-400 font-semibold">± 2.0 %</span>
+              </div>
+              <input type="range" id="tolTriSlider" min="0.5" max="6.0" step="0.5" value="2.0" class="w-full" />
+            </div>
+          </div>
+        </div>
+
+        <button id="runAnalysisBtn" class="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-gis-950 font-bold text-sm rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <span>Spustit geometrickou analýzu</span>
+        </button>
+
+      </div>
+
+      <!-- ==================== ZÁLOŽKA 3: VÝSLEDKY ==================== -->
+      <div id="tab-results" class="tab-content hidden space-y-3">
+        
+        <div class="flex items-center justify-between bg-gis-800/60 p-2.5 rounded-xl border border-gis-700/70 gap-1.5">
+          <select id="resultFilterSelect" class="bg-gis-950 border border-gis-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 flex-1 min-w-0">
+            <option value="all">Všechny vzorce</option>
+            <option value="line">Přímky (Ley lines)</option>
+            <option value="cross">Ortogonální kříže</option>
+            <option value="triangle">Trojúhelníky</option>
+            <option value="hexagram">Hvězdy (Hexagramy)</option>
+            <option value="circle">Kružnice / Věnce</option>
+          </select>
+
+          <button id="showAllPatternsBtn" class="px-2 py-1.5 bg-gis-700 hover:bg-gis-600 text-xs rounded-lg text-white transition shrink-0" title="Zobrazit všechny nalezené vzorce najednou">
+            Vše na mapě
+          </button>
+          <button id="exportPatternsBtn" class="px-2 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 text-xs rounded-lg transition shrink-0">
+            GeoJSON
+          </button>
+          <button id="exportGpxBtn" class="px-2 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs rounded-lg transition shrink-0">
+            GPX
+          </button>
+        </div>
+
+        <!-- Filtr shody atributů u nalezených vzorců -->
+        <div class="flex items-center gap-2 text-[11px] px-1">
+          <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+            <input type="checkbox" id="onlyThematicMatchChk" class="accent-amber-500" />
+            <span>Jen vzorce se shodou zasvěcení, řádu nebo doby vzniku</span>
+          </label>
+        </div>
+
+        <div id="resultsSummaryBar" class="text-xs text-slate-400 px-1">
+          Zatím nebyla spuštěna analýza.
+        </div>
+
+        <div id="resultsListContainer" class="space-y-2.5">
+          <!-- Karty nalezených vzorců -->
+        </div>
+
+      </div>
+
+      <!-- ==================== ZÁLOŽKA 4: STATISTICKÉ OVĚŘENÍ (MONTE CARLO) ==================== -->
+      <div id="tab-stats" class="tab-content hidden space-y-4">
+        
+        <div class="bg-gis-800/50 border border-gis-700/70 rounded-xl p-3.5 space-y-3">
+          <div class="flex items-start gap-2.5">
+            <div class="p-2 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 mt-0.5">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-white">Test apofenie (Monte Carlo)</h2>
+              <p class="text-xs text-slate-400 leading-relaxed mt-1">
+                Simulace vygeneruje <strong>N náhodných sad</strong> o stejném počtu kostelů na stejném území a spočítá Z-skóre a <em>p-hodnotu</em>, aby ověřila, zda jsou zjištěné linie či kříže skutečným záměrem, nebo jen náhodou v husté síti.
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-gis-700/60">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-300">Počet náhodných iterací:</span>
+              <span id="mcIterLabel" class="font-mono text-cyan-400 font-semibold">100 iterací</span>
+            </div>
+            <input type="range" id="mcIterSlider" min="100" max="500" step="100" value="100" class="w-full" />
+          </div>
+
+          <button id="runMonteCarloBtn" class="w-full py-2.5 px-4 bg-cyan-600 hover:bg-cyan-500 text-gis-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2">
+            <svg id="mcSpinner" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+            <span>Ověřit statistickou významnost (Monte Carlo)</span>
+          </button>
+        </div>
+
+        <div id="mcResultsContainer" class="hidden space-y-3"></div>
+
+      </div>
+
+    </div>
+
+    <!-- Spodní lišta stavu -->
+    <div class="p-2.5 px-4 border-t border-gis-800 bg-gis-950 text-[11px] text-slate-400 flex items-center justify-between shrink-0 font-mono">
+      <span id="cursorCoords">50.0755° N, 14.4378° E</span>
+      <span id="statusMessage" class="text-amber-400 truncate max-w-[200px]">Připraveno</span>
+    </div>
+  </aside>
+
+  <!-- HLAVNÍ MAPOVÉ OKNO -->
+  <main id="mapContainer" class="relative flex-1 h-screen min-h-[500px] w-full flex flex-col">
+    <div id="map"></div>
+
+    <!-- Sjednocený vysoce kontrastní TMAVÝ panel vrstev v pravém horním rohu -->
+    <div style="background-color: rgba(15, 23, 42, 0.94);" class="fixed top-3 right-3 z-[900] border border-slate-600/90 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-white max-w-[calc(100vw-24px)] sm:max-w-[540px] space-y-2.5 text-[11px]">
+      
+      <!-- Řádek 1: Podkladové mapy + Měření -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-700/80">
+        <div class="flex flex-wrap items-center gap-1">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Podklad:</span>
+          <button data-basemap="topoLight" class="basemap-btn px-2 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold shadow-sm transition">Topo Světlý</button>
+          <button data-basemap="topoVivid" class="basemap-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">Topo Sytý</button>
+          <button data-basemap="osm" class="basemap-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">OSM</button>
+          <button data-basemap="cuzkZm" class="basemap-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">ČÚZK Základní</button>
+          <button data-basemap="blank" class="basemap-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">Čisté plátno + řeky</button>
+        </div>
+
+        <button id="toggleMeasureBtn" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition shrink-0" title="Geodetické měření vzdáleností a úhlů">
+          <span class="text-cyan-400">📐</span>
+          <span>Měřit</span>
+        </button>
+      </div>
+
+      <!-- Řádek 2: Historické mapy ČÚZK & Reliéf -->
+      <div class="space-y-2">
+        <div class="flex flex-wrap items-center gap-1">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mr-1">Historické mapy & reliéf:</span>
+          <button data-hist="none" class="hist-btn px-2 py-1 rounded-lg bg-sky-500 text-slate-950 font-bold shadow-sm transition">Vypnuto</button>
+          <button data-hist="stabilni" class="hist-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">Stabilní katastr (1826–43)</button>
+          <button data-hist="ii_voj" class="hist-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">II. vojenské (1836–52)</button>
+          <button data-hist="iii_voj" class="hist-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">III. vojenské (1876–80)</button>
+          <button data-hist="dmr5g" class="hist-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition">DMR 5G Reliéf (LiDAR)</button>
+        </div>
+
+        <!-- Ovládání průhlednosti a přiblížení na katastr -->
+        <div id="histControlsBar" class="hidden flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-300 font-medium">Průhlednost:</span>
+            <input type="range" id="histOpacitySlider" min="0" max="100" step="5" value="85" class="w-24" />
+            <span id="histOpacityVal" class="font-mono text-amber-400 font-bold w-9">85%</span>
+          </div>
+
+          <div id="histZoomHintBox" class="hidden flex items-center gap-1.5 bg-amber-500/20 text-amber-200 border border-amber-500/40 rounded-lg px-2 py-0.5 text-[10px]">
+            <span id="histZoomHintText">Zobrazuje se II. voj. (z &lt; 14)</span>
+            <button id="zoomToCadastreBtn" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2 py-0.5 rounded transition">Přiblížit na katastr</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plovoucí panel pro ruční měření -->
+    <div id="measurePanel" class="hidden fixed bottom-8 right-3 z-[900] w-80 bg-gis-900/95 border border-cyan-500/50 rounded-xl p-3.5 shadow-2xl backdrop-blur space-y-2.5 text-xs">
+      <div class="flex items-center justify-between border-b border-gis-700 pb-2">
+        <span class="font-bold text-cyan-400">📐 Geodetické měření</span>
+        <div class="flex items-center gap-2">
+          <button id="clearMeasureBtn" class="text-slate-400 hover:text-white underline">Reset</button>
+          <button id="closeMeasureBtn" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-400">Klikejte na kostely nebo do mapy (2 body = azimut a vzdálenost, 3 body = vnitřní úhel).</p>
+      <div id="measureOutput" class="font-mono bg-gis-950 p-2.5 rounded-lg border border-gis-800 space-y-1 text-[11px]">
+        <div class="text-slate-500">Vyberte první bod...</div>
+      </div>
+    </div>
+
+    <!-- Banner přidání bodu -->
+    <div id="addPointBanner" class="hidden fixed top-16 left-1/2 transform -translate-x-1/2 z-[950] bg-amber-500 text-gis-950 px-4 py-2 rounded-full shadow-xl font-semibold text-xs flex items-center gap-3">
+      <span>📍 Klikněte kamkoliv do mapy pro vložení nové sakrální stavby</span>
+      <button id="cancelAddPointBtn" class="bg-gis-950 text-white px-2 py-0.5 rounded-full text-[11px]">Zrušit</button>
+    </div>
+
+    <!-- MODÁLNÍ OKNO: EXPORT DATABÁZE -->
+    <div id="exportModal" class="hidden fixed inset-0 z-[1150] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-gis-900 border border-gis-700 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-gis-800 pb-2">
+          <h3 class="text-sm font-bold text-white">Exportovat databázi staveb</h3>
+          <button id="closeExportModalBtn" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <p class="text-xs text-slate-400">Uložte si aktuální databázi kostelů do souboru pro QGIS, tabulkový procesor nebo pozdější načtení:</p>
+        <div class="grid grid-cols-1 gap-2 text-xs">
+          <button id="doExportGeoJsonBtn" class="py-2.5 px-3 bg-gis-800 hover:bg-gis-700 border border-gis-600 rounded-xl text-left flex items-center justify-between">
+            <span>🗺️ <strong>GeoJSON</strong> (pro QGIS / opětný import)</span>
+            <span class="text-cyan-400 font-mono">.geojson</span>
+          </button>
+          <button id="doExportCsvBtn" class="py-2.5 px-3 bg-gis-800 hover:bg-gis-700 border border-gis-600 rounded-xl text-left flex items-center justify-between">
+            <span>📊 <strong>CSV tabulka</strong> (Excel, afiliace, zasvěcení, rok)</span>
+            <span class="text-amber-400 font-mono">.csv</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODÁLNÍ OKNO: PŘIDAT NOVÝ BOD -->
+    <div id="addPointModal" class="hidden fixed inset-0 z-[1100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-gis-900 border border-gis-700 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+        <h3 class="text-base font-bold text-white">Nová sakrální stavba (do r. 1800)</h3>
+        <div class="space-y-3 text-xs">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Název stavby *</label>
+              <input type="text" id="newPointName" placeholder="Kostel sv. Václava" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Obec / Lokalita</label>
+              <input type="text" id="newPointMunicipality" placeholder="např. Stará Boleslav" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Zeměpisná šířka (Lat)</label>
+              <input type="number" step="any" id="newPointLat" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white font-mono" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Zeměpisná délka (Lon)</label>
+              <input type="number" step="any" id="newPointLon" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white font-mono" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Rok založení (max 1800)</label>
+              <input type="number" id="newPointYear" value="1250" min="800" max="1800" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white font-mono" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Stavební sloh</label>
+              <select id="newPointStyle" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white">
+                <option value="románský">Románský</option>
+                <option value="gotický" selected>Gotický</option>
+                <option value="renesanční">Renesanční</option>
+                <option value="barokní">Barokní</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Afiliace (řád / správa)</label>
+              <input type="text" id="newPointAffiliation" value="Diecézní" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Zasvěcení (patrocinium)</label>
+              <input type="text" id="newPointDedication" placeholder="sv. Václav" class="w-full bg-gis-950 border border-gis-700 rounded-lg px-3 py-2 text-white" />
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button id="closeModalBtn" class="px-4 py-2 rounded-lg bg-gis-800 text-slate-300 hover:text-white text-xs font-medium">Zrušit</button>
+          <button id="saveNewPointBtn" class="px-4 py-2 rounded-lg bg-amber-500 text-gis-950 font-bold text-xs hover:bg-amber-400">Uložit do mapy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast notifikace -->
+    <div id="toastContainer" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[1200] pointer-events-none flex flex-col gap-2"></div>
+  </main>
+
+  <script>
+    /**
+     * ============================================================================
+     * SACRAGEO – HISTORICKO-GEOMETRICKÁ ANALÝZA SAKRÁLNÍCH STAVEB (DO R. 1800)
+     * ============================================================================
+     */
+
+    // ----------------------------------------------------------------------------
+    // 1. VESTAVĚNÁ DATABÁZE 122 STŘEDOČESKÝCH A PRAŽSKÝCH KOSTELŮ DO R. 1800
+    // ----------------------------------------------------------------------------
+    const PRESET_CHURCHES = [
+      // === PRAHA – HISTORICKÉ JÁDRO & KARLOVSKÝ KŘÍŽ ===
+      { id: 'db-001', name: 'Kostel sv. Kateřiny Alexandrijské', municipality: 'Praha – Nové Město', lat: 50.0725, lon: 14.4239, year: 1355, style: 'gotický', affiliation: 'Augustiniáni', dedication: 'sv. Kateřina', note: 'Severní rameno Karlovského kříže kostelů založeného Karlem IV.' },
+      { id: 'db-002', name: 'Kostel Zvěstování Panny Marie Na slupi', municipality: 'Praha – Nové Město', lat: 50.0686, lon: 14.4222, year: 1360, style: 'gotický', affiliation: 'Augustiniáni', dedication: 'Panna Maria', note: 'Jižní rameno Karlovského kříže pražských novoměstských chrámů.' },
+      { id: 'db-003', name: 'Kostel Nanebevzetí Panny Marie a sv. Karla Velkého (Karlov)', municipality: 'Praha – Nové Město', lat: 50.0692, lon: 14.4283, year: 1350, style: 'gotický', affiliation: 'Augustiniáni', dedication: 'Panna Maria', note: 'Východní rameno Karlovského kříže – osmiboká loď podle cášské kaple.' },
+      { id: 'db-004', name: 'Klášter Na Slovanech – Emauzy (Panny Marie)', municipality: 'Praha – Nové Město', lat: 50.0722, lon: 14.4175, year: 1347, style: 'gotický', affiliation: 'Benediktini', dedication: 'Panna Maria', note: 'Západní rameno Karlovského kříže, středisko slovanské liturgie.' },
+      { id: 'db-005', name: 'Kostel sv. Apolináře', municipality: 'Praha – Nové Město', lat: 50.0706, lon: 14.4244, year: 1362, style: 'gotický', affiliation: 'Kapitula', dedication: 'sv. Apolinář', note: 'Středový kloub Karlovského kříže na vrchu Větrově.' },
+      { id: 'db-006', name: 'Rotunda sv. Longina', municipality: 'Praha – Nové Město', lat: 50.0764, lon: 14.4253, year: 1130, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Longin', note: 'Původní románská rotunda vsi Rybníček.' },
+      { id: 'db-007', name: 'Rotunda sv. Martina', municipality: 'Praha – Vyšehrad', lat: 50.0636, lon: 14.4214, year: 1080, style: 'románský', affiliation: 'Kapitula', dedication: 'sv. Martin', note: 'Nejstarší dochovaná rotunda v Praze z doby Vratislava II.' },
+      { id: 'db-008', name: 'Bazilika sv. Petra a Pavla', municipality: 'Praha – Vyšehrad', lat: 50.0644, lon: 14.4179, year: 1070, style: 'románský', affiliation: 'Kapitula', dedication: 'sv. Petr a Pavel', note: 'Vyšehradský kapitulní chrám založený knížetem Vratislavem II.' },
+      { id: 'db-009', name: 'Kostel sv. Martina ve zdi', municipality: 'Praha – Staré Město', lat: 50.0819, lon: 14.4200, year: 1178, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Martin', note: 'Románský kostel přetnutý staroměstskými hradbami.' },
+      { id: 'db-010', name: 'Kostel sv. Klimenta (Klimentská)', municipality: 'Praha – Nové Město', lat: 50.0914, lon: 14.4325, year: 1226, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Kliment', note: 'Starobylý kostel v osadě Poříčí na břehu Vltavy.' },
+      { id: 'db-011', name: 'Katedrála sv. Víta, Václava a Vojtěcha', municipality: 'Praha – Hradčany', lat: 50.0909, lon: 14.4005, year: 930, style: 'gotický', affiliation: 'Kapitula', dedication: 'sv. Vít', note: 'Původně rotunda sv. Víta (930), bazilika (1060), katedrála (1344).' },
+      { id: 'db-012', name: 'Bazilika sv. Jiří', municipality: 'Praha – Hradčany', lat: 50.0911, lon: 14.4025, year: 920, style: 'románský', affiliation: 'Benediktini', dedication: 'sv. Jiří', note: 'První ženský klášter v Čechách založený Mladou a Boleslavem II.' },
+      { id: 'db-013', name: 'Strahovský klášter (Nanebevzetí Panny Marie)', municipality: 'Praha – Hradčany', lat: 50.0864, lon: 14.3894, year: 1143, style: 'románský', affiliation: 'Premonstráti', dedication: 'Panna Maria', note: 'Královská kanonie premonstrátů založená Vladislavem II.' },
+      { id: 'db-014', name: 'Kostel Panny Marie pod řetězem', municipality: 'Praha – Malá Strana', lat: 50.0858, lon: 14.4061, year: 1169, style: 'románský', affiliation: 'Johanité', dedication: 'Panna Maria', note: 'Nejstarší komenda řádu johanitů v českých zemích.' },
+      { id: 'db-015', name: 'Kostel sv. Františka z Assisi (Křižovnické nám.)', municipality: 'Praha – Staré Město', lat: 50.0864, lon: 14.4139, year: 1252, style: 'barokní', affiliation: 'Křižovníci', dedication: 'sv. František', note: 'Mateřský klášter jediného původního českého řádu sv. Anežky České.' },
+      { id: 'db-016', name: 'Anežský klášter (sv. František a sv. Salvátor)', municipality: 'Praha – Staré Město', lat: 50.0922, lon: 14.4244, year: 1231, style: 'gotický', affiliation: 'Františkáni', dedication: 'sv. František', note: 'První gotická stavba v Praze založená sv. Anežkou Českou.' },
+      { id: 'db-017', name: 'Kostel sv. Jiljí', municipality: 'Praha – Staré Město', lat: 50.0847, lon: 14.4183, year: 1371, style: 'gotický', affiliation: 'Dominikáni', dedication: 'sv. Jiljí', note: 'Monumentální halový chrám na Starém Městě pražském.' },
+      { id: 'db-018', name: 'Kostel sv. Havla', municipality: 'Praha – Staré Město', lat: 50.0853, lon: 14.4222, year: 1232, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Havel', note: 'Farní kostel Havelského města založeného Václavem I.' },
+      { id: 'db-019', name: 'Kostel sv. Mikuláše (Malá Strana)', municipality: 'Praha – Malá Strana', lat: 50.0881, lon: 14.4033, year: 1283, style: 'barokní', affiliation: 'Jezuité', dedication: 'sv. Mikuláš', note: 'Vrcholně barokní chrám K. I. Dientzenhofera na místě gotického kostela.' },
+      { id: 'db-020', name: 'Rotunda Nalezení sv. Kříže', municipality: 'Praha – Staré Město', lat: 50.0833, lon: 14.4142, year: 1125, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Kříž', note: 'Románská rotunda v Konviktské ulici.' },
+      { id: 'db-021', name: 'Kostel sv. Pankráce', municipality: 'Praha – Nusle', lat: 50.0575, lon: 14.4317, year: 1150, style: 'románský', affiliation: 'Kapitula', dedication: 'sv. Pankrác', note: 'Románský tribunový kostel na návrší nad Nuselským údolím.' },
+
+      // === PRAHA – OKRAJOVÉ MĚSTSKÉ ČÁSTI ===
+      { id: 'db-022', name: 'Břevnovský klášter (sv. Markéta)', municipality: 'Praha – Břevnov', lat: 50.0844, lon: 14.3564, year: 993, style: 'barokní', affiliation: 'Benediktini', dedication: 'sv. Markéta', note: 'Nejstarší mužský klášter v Čechách (993).' },
+      { id: 'db-023', name: 'Kostel sv. Fabiána a Šebestiána', municipality: 'Praha – Liboc', lat: 50.0936, lon: 14.3317, year: 1350, style: 'gotický', affiliation: 'Benediktini', dedication: 'sv. Fabián a Šebestián', note: 'Středověký kostel břevnovského kláštera při cestě na Hrad.' },
+      { id: 'db-024', name: 'Kostel sv. Jana Křtitele', municipality: 'Praha – Dolní Chabry', lat: 50.1497, lon: 14.4422, year: 1170, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Jan Křtitel', note: 'Románský tribunový kostel s cennými nástěnnými malbami.' },
+      { id: 'db-025', name: 'Kostel sv. Václava', municipality: 'Praha – Prosek', lat: 50.1181, lon: 14.4928, year: 1150, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Václav', note: 'Trojlodní románská bazilika na staré stezce do Staré Boleslavi.' },
+      { id: 'db-026', name: 'Kostel sv. Bartoloměje', municipality: 'Praha – Kyje', lat: 50.0978, lon: 14.5478, year: 1230, style: 'románský', affiliation: 'Kapitula', dedication: 'sv. Bartoloměj', note: 'Opevněný románský kostel se strážní věží pražských biskupů.' },
+      { id: 'db-027', name: 'Kostel Stětí sv. Jana Křtitele', municipality: 'Praha – Hostivař', lat: 50.0486, lon: 14.5244, year: 1250, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Jan Křtitel', note: 'Raně středověký kostelík nad údolím Botiče.' },
+      { id: 'db-028', name: 'Kostel Narození Panny Marie', municipality: 'Praha – Záběhlice', lat: 50.0531, lon: 14.4969, year: 1125, style: 'románský', affiliation: 'Diecézní', dedication: 'Panna Maria', note: 'Románský kostel u bývalé královské tvrze na břehu Botiče.' },
+      { id: 'db-029', name: 'Kostel sv. Jakuba Staršího', municipality: 'Praha – Petrovice', lat: 50.0339, lon: 14.5542, year: 1270, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jakub', note: 'Raně gotický jednolodní kostelík v údolí Botiče.' },
+      { id: 'db-030', name: 'Kostel Všech svatých', municipality: 'Praha – Uhříněves', lat: 50.0306, lon: 14.6019, year: 1280, style: 'barokní', affiliation: 'Johanité', dedication: 'Všichni svatí', note: 'Komenda a patronátní kostel řádu johanitů.' },
+      { id: 'db-031', name: 'Kostel sv. Ondřeje', municipality: 'Praha – Kolovraty', lat: 50.0114, lon: 14.6267, year: 1350, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Ondřej', note: 'Gotický venkovský kostelík se zachovaným presbytářem.' },
+      { id: 'db-032', name: 'Kostel sv. Havla', municipality: 'Praha – Zbraslav', lat: 49.9694, lon: 14.3917, year: 1115, style: 'gotický', affiliation: 'Cisterciáci', dedication: 'sv. Havel', note: 'Starobylý kostel na návrší nad soutokem Vltavy a Berounky.' },
+      { id: 'db-033', name: 'Klášter Zbraslav (sv. Jakub Větší)', municipality: 'Praha – Zbraslav', lat: 49.9778, lon: 14.3914, year: 1292, style: 'gotický', affiliation: 'Cisterciáci', dedication: 'sv. Jakub', note: 'Královské pohřebiště Přemyslovců založené Václavem II.' },
+      { id: 'db-034', name: 'Kostel Všech svatých', municipality: 'Praha – Slivenec', lat: 50.0197, lon: 14.3567, year: 1280, style: 'gotický', affiliation: 'Křižovníci', dedication: 'Všichni svatí', note: 'Raně gotický kostel křižovníků s červenou hvězdou.' },
+      { id: 'db-035', name: 'Kostel sv. Petra a Pavla', municipality: 'Praha – Řeporyje', lat: 50.0331, lon: 14.3125, year: 1180, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Petr a Pavel', note: 'Románský kostelík se zachovanou apsidou.' },
+      { id: 'db-036', name: 'Kostel sv. Vavřince', municipality: 'Praha – Jinonice (Butovice)', lat: 50.0494, lon: 14.3558, year: 1150, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Vavřinec', note: 'Románský tribunový kostelík na hraně Prokopského údolí.' },
+      { id: 'db-037', name: 'Kostel sv. Filipa a Jakuba', municipality: 'Praha – Zlíchov', lat: 50.0469, lon: 14.4078, year: 1257, style: 'barokní', affiliation: 'Kapitula', dedication: 'sv. Filip a Jakub', note: 'Původně gotický kostel na vápencové skále nad Vltavou.' },
+      { id: 'db-038', name: 'Kostel sv. Michaela archanděla', municipality: 'Praha – Podolí', lat: 50.0569, lon: 14.4175, year: 1222, style: 'románský', affiliation: 'Kapitula', dedication: 'sv. Michael', note: 'Raně gotický/románský kostelík s dřevěnou zvonicí pod Vyšehradem.' },
+
+      // === PRAHA-ZÁPAD, KLADENSKO & SLÁNSKO ===
+      { id: 'db-039', name: 'Kostel sv. Klimenta (Levý Hradec)', municipality: 'Roztoky – Žalov', lat: 50.1725, lon: 14.3736, year: 882, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Kliment', note: 'První křesťanský kostel v Čechách založený knížetem Bořivojem I.' },
+      { id: 'db-040', name: 'Rotunda sv. Petra a Pavla (Budeč)', municipality: 'Zákolany – Kováry', lat: 50.1914, lon: 14.2447, year: 905, style: 'románský', affiliation: 'Kapitula', dedication: 'sv. Petr a Pavel', note: 'Nejstarší dochovaná stojící stavba v ČR (kolem r. 905).' },
+      { id: 'db-041', name: 'Kostel Nanebevzetí Panny Marie', municipality: 'Únětice', lat: 50.1497, lon: 14.3522, year: 1132, style: 'románský', affiliation: 'Kapitula', dedication: 'Panna Maria', note: 'Významný románský kostel v Tichém údolí.' },
+      { id: 'db-042', name: 'Kostel sv. Jana Křtitele', municipality: 'Noutonice', lat: 50.1636, lon: 14.2775, year: 1350, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jan Křtitel', note: 'Poutní kostel v údolí Zákolanského potoka.' },
+      { id: 'db-043', name: 'Kostel sv. Mikuláše', municipality: 'Kladno – Vrapice', lat: 50.1653, lon: 14.1681, year: 1170, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Mikuláš', note: 'Románský kostelík s půlkruhovou apsidou.' },
+      { id: 'db-044', name: 'Kostel sv. Gotharda', municipality: 'Slaný', lat: 50.2306, lon: 14.0869, year: 1137, style: 'gotický', affiliation: 'Benediktini', dedication: 'sv. Gothard', note: 'Děkanský chrám založený břevnovskými benediktiny.' },
+      { id: 'db-045', name: 'Kostel Nejsvětější Trojice (klášter)', municipality: 'Slaný', lat: 50.2339, lon: 14.0894, year: 1581, style: 'renesanční', affiliation: 'Františkáni', dedication: 'Nejsvětější Trojice', note: 'Klášterní kostel františkánů ve Slaném.' },
+      { id: 'db-046', name: 'Kostel Narození sv. Jana Křtitele', municipality: 'Velvary', lat: 50.2811, lon: 14.2361, year: 1350, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jan Křtitel', note: 'Gotický trojlodní chrám královského města Velvary.' },
+      { id: 'db-047', name: 'Kostel sv. Jiří', municipality: 'Velvary', lat: 50.2836, lon: 14.2333, year: 1616, style: 'renesanční', affiliation: 'Diecézní', dedication: 'sv. Jiří', note: 'Renesančně-gotický hřbitovní kostelík s dřevěnou zvonicí.' },
+      { id: 'db-048', name: 'Kostel Narození Panny Marie', municipality: 'Smečno', lat: 50.1889, lon: 14.0372, year: 1587, style: 'renesanční', affiliation: 'Diecézní', dedication: 'Panna Maria', note: 'Pozdně gotický až renesanční chrám s cennými varhanami.' },
+      { id: 'db-049', name: 'Kostel sv. Václava', municipality: 'Stochov', lat: 50.1453, lon: 13.9636, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Václav', note: 'Kostel u Svatováclavského dubu, rodiště sv. Václava dle legend.' },
+      { id: 'db-050', name: 'Kostel sv. Petra a Pavla', municipality: 'Unhošť', lat: 50.0886, lon: 14.1319, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Petr a Pavel', note: 'Gotický farní chrám v Unhošti.' },
+      { id: 'db-051', name: 'Kostel Povýšení sv. Kříže', municipality: 'Tachlovice', lat: 50.0086, lon: 14.2422, year: 1352, style: 'barokní', affiliation: 'Diecézní', dedication: 'sv. Kříž', note: 'Starobylý farní kostel v Tachlovicích.' },
+
+      // === PRAHA-VÝCHOD, BRANDÝSKO, STAROBOLESLAVSKO & ŘÍČANSKO ===
+      { id: 'db-052', name: 'Bazilika sv. Václava', municipality: 'Brandýs n. L. – Stará Boleslav', lat: 50.1942, lon: 14.6725, year: 1039, style: 'románský', affiliation: 'Kapitula', dedication: 'sv. Václav', note: 'Místo mučednické smrti sv. Václava, bazilika Břetislava I.' },
+      { id: 'db-053', name: 'Kostel Nanebevzetí Panny Marie', municipality: 'Brandýs n. L. – Stará Boleslav', lat: 50.1967, lon: 14.6761, year: 1617, style: 'barokní', affiliation: 'Jezuité', dedication: 'Panna Maria', note: 'Národní poutní chrám Palladia země české.' },
+      { id: 'db-054', name: 'Kostel Obrácení sv. Pavla', municipality: 'Brandýs n. L. – Stará Boleslav', lat: 50.1869, lon: 14.6631, year: 1541, style: 'renesanční', affiliation: 'Diecézní', dedication: 'sv. Pavel', note: 'Renesanční děkanský chrám v centru Brandýsa nad Labem.' },
+      { id: 'db-055', name: 'Kostel sv. Václava', municipality: 'Dřevčice', lat: 50.1686, lon: 14.6347, year: 1352, style: 'gotický', affiliation: 'Kapitula', dedication: 'sv. Václav', note: 'Gotický kostel na přímé ose mezi Prahou a Starou Boleslaví.' },
+      { id: 'db-056', name: 'Kostel sv. Havla', municipality: 'Šestajovice', lat: 50.1086, lon: 14.6808, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Havel', note: 'Původně gotický farní kostel východně od Prahy.' },
+      { id: 'db-057', name: 'Kostel sv. Bartoloměje', municipality: 'Mochov', lat: 50.1444, lon: 14.7931, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Bartoloměj', note: 'Gotický kostel v Polabí.' },
+      { id: 'db-058', name: 'Kostel sv. Vojtěcha', municipality: 'Přerov nad Labem', lat: 50.1597, lon: 14.8244, year: 1350, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Vojtěch', note: 'Gotický farní kostel na levém břehu Labe.' },
+      { id: 'db-059', name: 'Kostel Narození Panny Marie', municipality: 'Průhonice', lat: 50.0006, lon: 14.5581, year: 1187, style: 'románský', affiliation: 'Diecézní', dedication: 'Panna Maria', note: 'Románský kostelík s původními freskami v zámeckém parku.' },
+      { id: 'db-060', name: 'Kostel sv. Petra a Pavla', municipality: 'Říčany', lat: 49.9917, lon: 14.6544, year: 1289, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Petr a Pavel', note: 'Gotický farní kostel pod zříceninou hradu Říčany.' },
+      { id: 'db-061', name: 'Kostel sv. Martina', municipality: 'Kostelec u Křížků', lat: 49.9114, lon: 14.5608, year: 1150, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Martin', note: 'Románský kostelík s rotundovou apsidou.' },
+      { id: 'db-062', name: 'Kostel sv. Václava', municipality: 'Jažlovice (Říčany)', lat: 49.9681, lon: 14.6147, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Václav', note: 'Gotický kostelík s hranolovou věží na Říčansku.' },
+      { id: 'db-063', name: 'Kostel sv. Bartoloměje', municipality: 'Kocanda (Jesenice)', lat: 49.9619, lon: 14.5064, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Bartoloměj', note: 'Starobylý kostelík na Jílovské stezce.' },
+      { id: 'db-064', name: 'Kostel sv. Vojtěcha', municipality: 'Jílové u Prahy', lat: 49.8936, lon: 14.4928, year: 1260, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Vojtěch', note: 'Gotický chrám horního města Jílové u Prahy.' },
+      { id: 'db-065', name: 'Kostel sv. Jakuba Většího', municipality: 'Mnichovice', lat: 49.9367, lon: 14.7089, year: 1352, style: 'barokní', affiliation: 'Diecézní', dedication: 'sv. Jakub', note: 'Farní kostel v Mnichovicích.' },
+      { id: 'db-066', name: 'Kostel sv. Prokopa', municipality: 'Hrusice', lat: 49.9097, lon: 14.7364, year: 1200, style: 'románský', affiliation: 'Benediktini', dedication: 'sv. Prokop', note: 'Románský kostel s unikátním ústupkovým portálem.' },
+      { id: 'db-067', name: 'Kostel sv. Václava', municipality: 'Ondřejov', lat: 49.9039, lon: 14.7825, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Václav', note: 'Farní kostel v Ondřejově.' },
+      { id: 'db-068', name: 'Kostel sv. Jana Křtitele', municipality: 'Kostelec nad Černými lesy', lat: 49.9964, lon: 14.8617, year: 1352, style: 'barokní', affiliation: 'Diecézní', dedication: 'sv. Jan Křtitel', note: 'Farní chrám v Kostelci nad Černými lesy.' },
+
+      // === KOLÍNSKO, KOUŘIMSKO & KUTNOHORSKO ===
+      { id: 'db-069', name: 'Kostel sv. Gotharda', municipality: 'Český Brod', lat: 50.0744, lon: 14.8611, year: 1150, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Gothard', note: 'Významný městský chrám na staré Trstenické stezce.' },
+      { id: 'db-070', name: 'Kostel sv. Štěpána', municipality: 'Kouřim', lat: 50.0028, lon: 14.9775, year: 1260, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Štěpán', note: 'Raně gotický chrám s unikátní kryptou sv. Kateřiny.' },
+      { id: 'db-071', name: 'Kostel sv. Václava', municipality: 'Tismice', lat: 50.0564, lon: 14.8239, year: 1180, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Václav', note: 'Vzácně dochovaná románská trojlodní bazilika se dvěma věžemi.' },
+      { id: 'db-072', name: 'Kostel sv. Jiljí', municipality: 'Bylany u Českého Brodu', lat: 50.0597, lon: 14.8886, year: 1150, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Jiljí', note: 'Románský tribunový kostelík s hranolovou věží.' },
+      { id: 'db-073', name: 'Kostel Nanebevzetí Panny Marie', municipality: 'Plaňany', lat: 50.0511, lon: 15.0289, year: 1160, style: 'románský', affiliation: 'Diecézní', dedication: 'Panna Maria', note: 'Románský emporový kostel na Kolínsku.' },
+      { id: 'db-074', name: 'Kostel sv. Bartoloměje', municipality: 'Kolín', lat: 50.0275, lon: 15.2014, year: 1261, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Bartoloměj', note: 'Vrcholně gotický chrám s katedrálním chórem Petra Parléře.' },
+      { id: 'db-075', name: 'Kostel sv. Jana Křtitele', municipality: 'Velim', lat: 50.0622, lon: 15.1128, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jan Křtitel', note: 'Gotický farní kostel ve Velimi.' },
+      { id: 'db-076', name: 'Kostel sv. Vavřince', municipality: 'Církvice (u Kutné Hory)', lat: 49.9611, lon: 15.3294, year: 1165, style: 'románský', affiliation: 'Cisterciáci', dedication: 'sv. Vavřinec', note: 'Románský tribunový kostel s unikátní plastickou výzdobou.' },
+      { id: 'db-077', name: 'Chrám sv. Barbory', municipality: 'Kutná Hora', lat: 49.9447, lon: 15.2636, year: 1388, style: 'gotický', affiliation: 'Jezuité', dedication: 'sv. Barbora', note: 'Katedrální chrám horního města, později ve správě jezuitů.' },
+      { id: 'db-078', name: 'Katedrála Nanebevzetí Panny Marie a sv. Jana Křtitele', municipality: 'Kutná Hora – Sedlec', lat: 49.9597, lon: 15.2894, year: 1142, style: 'gotický', affiliation: 'Cisterciáci', dedication: 'Panna Maria', note: 'Nejstarší cisterciácké opatství v Čechách (založeno 1142).' },
+      { id: 'db-079', name: 'Kostel sv. Jakuba Staršího', municipality: 'Kutná Hora', lat: 49.9497, lon: 15.2683, year: 1330, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jakub', note: 'Nejstarší městský farní chrám v Kutné Hoře.' },
+      { id: 'db-080', name: 'Kostel sv. Jakuba Většího', municipality: 'Svatý Mikuláš – Jakub (Církvice)', lat: 49.9742, lon: 15.3497, year: 1165, style: 'románský', affiliation: 'Cisterciáci', dedication: 'sv. Jakub', note: 'Světový unikát románské plastiky na fasádě kostela v Jakubu.' },
+      { id: 'db-081', name: 'Kostel sv. Vavřince', municipality: 'Žehuň', lat: 50.1353, lon: 15.2917, year: 1137, style: 'gotický', affiliation: 'Benediktini', dedication: 'sv. Vavřinec', note: 'Starobylý kostel u Žehuňského rybníka.' },
+
+      // === POSÁZAVÍ & BENEŠOVSKO ===
+      { id: 'db-082', name: 'Sázavský klášter (sv. Prokop)', municipality: 'Sázava', lat: 49.8772, lon: 14.8975, year: 1032, style: 'gotický', affiliation: 'Benediktini', dedication: 'sv. Prokop', note: 'Centrum slovanské liturgie založené sv. Prokopem a knížetem Oldřichem.' },
+      { id: 'db-083', name: 'Kostel sv. Jakuba Většího', municipality: 'Stříbrná Skalice – Rovná', lat: 49.8986, lon: 14.8469, year: 1165, style: 'románský', affiliation: 'Benediktini', dedication: 'sv. Jakub', note: 'Klenot románské architektury s jedinečnými nástěnnými malbami.' },
+      { id: 'db-084', name: 'Kostel sv. Havla', municipality: 'Poříčí nad Sázavou', lat: 49.8453, lon: 14.6739, year: 1150, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Havel', note: 'Románský kostel u brodu přes řeku Sázavu.' },
+      { id: 'db-085', name: 'Kostel sv. Petra a Pavla', municipality: 'Poříčí nad Sázavou', lat: 49.8442, lon: 14.6778, year: 1120, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Petr a Pavel', note: 'Druhý románský kostel v Poříčí nad Sázavou.' },
+      { id: 'db-086', name: 'Klášter Ostrov u Davle (sv. Jan Křtitel)', municipality: 'Davle', lat: 49.8858, lon: 14.3989, year: 999, style: 'románský', affiliation: 'Benediktini', dedication: 'sv. Jan Křtitel', note: 'Druhý nejstarší mužský klášter v Čechách na ostrově ve Vltavě.' },
+      { id: 'db-087', name: 'Kostel sv. Kiliána', municipality: 'Davle – Sekanka', lat: 49.8842, lon: 14.3947, year: 1240, style: 'gotický', affiliation: 'Benediktini', dedication: 'sv. Kilián', note: 'Farní kostel nad klášterem Ostrov.' },
+      { id: 'db-088', name: 'Kostel sv. Mikuláše', municipality: 'Benešov', lat: 49.7828, lon: 14.6881, year: 1226, style: 'gotický', affiliation: 'Minorité', dedication: 'sv. Mikuláš', note: 'Děkanský kostel na Karlově v Benešově.' },
+      { id: 'db-089', name: 'Kostel sv. Anny (Piaristický)', municipality: 'Benešov', lat: 49.7819, lon: 14.6853, year: 1705, style: 'barokní', affiliation: 'Diecézní', dedication: 'sv. Anna', note: 'Barokní kolejní chrám piaristů od G. B. Alliprandiho.' },
+      { id: 'db-090', name: 'Kostel sv. Václava', municipality: 'Týnec nad Sázavou', lat: 49.8308, lon: 14.5931, year: 1090, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Václav', note: 'Románská rotunda u hradu Týnec nad Sázavou.' },
+      { id: 'db-091', name: 'Kostel Narození Panny Marie', municipality: 'Vlašim', lat: 49.7072, lon: 14.8961, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'Panna Maria', note: 'Farní chrám v podzámčí ve Vlašimi.' },
+      { id: 'db-092', name: 'Kostel sv. Jiljí', municipality: 'Vlašim – Domašín', lat: 49.7158, lon: 14.8686, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jiljí', note: 'Gotický kostel v Domašíně u Vlašimi.' },
+      { id: 'db-093', name: 'Kostel sv. Šimona a Judy', municipality: 'Arnoštovice (Heřmaničky)', lat: 49.6197, lon: 14.5764, year: 1180, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Šimon a Juda', note: 'Výrazný románský tribunový kostel na České Sibiři.' },
+      { id: 'db-094', name: 'Kostel sv. Petra a Pavla', municipality: 'Čestín', lat: 49.8406, lon: 15.0531, year: 1250, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Petr a Pavel', note: 'Románsko-gotický kostel na Kutnohorsku/Sázavsku.' },
+
+      // === BEROUNSKO, KARLŠTEJNSKO, PŘÍBRAMSKO & RAKOVNICKO ===
+      { id: 'db-095', name: 'Kostel sv. Ludmily a sv. Kateřiny (Tetín)', municipality: 'Tetín', lat: 49.9489, lon: 14.1044, year: 921, style: 'románský', affiliation: 'Diecézní', dedication: 'sv. Ludmila', note: 'Přemyslovské hradiště nad Berounkou spojené se smrtí sv. Ludmily.' },
+      { id: 'db-096', name: 'Klášter Svatý Jan pod Skalou (sv. Jan Křtitel)', municipality: 'Svatý Jan pod Skalou', lat: 49.9692, lon: 14.1342, year: 1030, style: 'barokní', affiliation: 'Benediktini', dedication: 'sv. Jan Křtitel', note: 'Poutní klášter u poustevny sv. Ivana v Českém krasu.' },
+      { id: 'db-097', name: 'Kaple sv. Kříže (Hrad Karlštejn)', municipality: 'Karlštejn', lat: 49.9394, lon: 14.1881, year: 1348, style: 'gotický', affiliation: 'Kapitula', dedication: 'sv. Kříž', note: 'Korunovační a duchovní centrum Římské říše vybudované Karlem IV.' },
+      { id: 'db-098', name: 'Kostel sv. Stanislava', municipality: 'Mořina', lat: 49.9519, lon: 14.2153, year: 1352, style: 'gotický', affiliation: 'Kapitula', dedication: 'sv. Stanislav', note: 'Gotický kostel založený v přímé vazbě na výstavbu Karlštejna.' },
+      { id: 'db-099', name: 'Kostel sv. Martina', municipality: 'Třebotov', lat: 49.9769, lon: 14.3036, year: 1350, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Martin', note: 'Farní kostel na hraně Českého krasu.' },
+      { id: 'db-100', name: 'Kostel sv. Kateřiny', municipality: 'Choteč', lat: 49.9936, lon: 14.2839, year: 1350, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Kateřina', note: 'Gotický kostelík v údolí Radotínského potoka.' },
+      { id: 'db-101', name: 'Kostel Všech svatých', municipality: 'Dobřichovice', lat: 49.9267, lon: 14.2736, year: 1253, style: 'barokní', affiliation: 'Křižovníci', dedication: 'Všichni svatí', note: 'Křižovnický kostel na břehu Berounky.' },
+      { id: 'db-102', name: 'Kostel sv. Jakuba Staršího', municipality: 'Beroun', lat: 49.9639, lon: 14.0719, year: 1295, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jakub', note: 'Děkanský chrám královského města Beroun.' },
+      { id: 'db-103', name: 'Kostel sv. Jiří', municipality: 'Hořovice', lat: 49.8361, lon: 13.9036, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jiří', note: 'Původně gotický farní chrám v Hořovicích.' },
+      { id: 'db-104', name: 'Svatá Hora (Nanebevzetí Panny Marie)', municipality: 'Příbram', lat: 49.6853, lon: 14.0175, year: 1647, style: 'barokní', affiliation: 'Jezuité', dedication: 'Panna Maria', note: 'Nejvýznamnější mariánské poutní místo v Čechách.' },
+      { id: 'db-105', name: 'Kostel sv. Jakuba Staršího', municipality: 'Příbram', lat: 49.6892, lon: 14.0106, year: 1298, style: 'gotický', affiliation: 'Kapitula', dedication: 'sv. Jakub', note: 'Děkanský chrám na náměstí T. G. Masaryka v Příbrami.' },
+      { id: 'db-106', name: 'Kostel sv. Ignáce z Loyoly a sv. Františka Xaverského', municipality: 'Březnice', lat: 49.5569, lon: 13.9519, year: 1642, style: 'barokní', affiliation: 'Jezuité', dedication: 'sv. Ignác', note: 'Raně barokní jezuitský chrám od Carla Luraga.' },
+      { id: 'db-107', name: 'Kostel sv. Bartoloměje', municipality: 'Rakovník', lat: 50.1044, lon: 13.7336, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Bartoloměj', note: 'Monumentální pozdně gotický halový chrám v Rakovníku.' },
+      { id: 'db-108', name: 'Kostel sv. Jiljí', municipality: 'Rakovník', lat: 50.1061, lon: 13.7292, year: 1380, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Jiljí', note: 'Hřbitovní kostelík s dřevěnou zvonicí.' },
+      { id: 'db-109', name: 'Kaple sv. Petra a Pavla (Hrad Křivoklát)', municipality: 'Křivoklát', lat: 50.0378, lon: 13.8722, year: 1270, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Petr a Pavel', note: 'Královská hradní kaple s pozdně gotickým oltářem.' },
+
+      // === MĚLNICKO, NYMBURSKO & MLADOBOLESLAVSKO ===
+      { id: 'db-110', name: 'Kostel sv. Petra a Pavla', municipality: 'Mělník', lat: 50.3514, lon: 14.4739, year: 1080, style: 'gotický', affiliation: 'Kapitula', dedication: 'sv. Petr a Pavel', note: 'Kapitulní chrám nad soutokem Labe a Vltavy.' },
+      { id: 'db-111', name: 'Kostel sv. Ludmily', municipality: 'Mělník', lat: 50.3522, lon: 14.4819, year: 1583, style: 'renesanční', affiliation: 'Diecézní', dedication: 'sv. Ludmila', note: 'Pozdně gotický/renesanční kostel na Pražském předměstí.' },
+      { id: 'db-112', name: 'Kostel sv. Vavřince (Pšovka)', municipality: 'Mělník', lat: 50.3578, lon: 14.4686, year: 1180, style: 'románský', affiliation: 'Augustiniáni', dedication: 'sv. Vavřinec', note: 'Klášterní kostel obutých augustiniánů na Pšovce.' },
+      { id: 'db-113', name: 'Kostel Narození Panny Marie (Klášter)', municipality: 'Doksany', lat: 50.4547, lon: 14.1589, year: 1144, style: 'románský', affiliation: 'Premonstráti', dedication: 'Panna Maria', note: 'Ženský premonstrátský klášter s unikátní románskou kryptou.' },
+      { id: 'db-114', name: 'Kostel sv. Václava', municipality: 'Libiš', lat: 50.2819, lon: 14.5056, year: 1391, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Václav', note: 'Gotický kostel s cennými nástěnnými malbami a dřevěnou zvonicí.' },
+      { id: 'db-115', name: 'Kostel sv. Martina', municipality: 'Kostelec nad Labem', lat: 50.2275, lon: 14.5853, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Martin', note: 'Hřbitovní gotický kostelík v Kostelci nad Labem.' },
+      { id: 'db-116', name: 'Kostel sv. Víta', municipality: 'Kostelec nad Labem', lat: 50.2303, lon: 14.5872, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'sv. Vít', note: 'Děkanský chrám v centru Kostelce nad Labem.' },
+      { id: 'db-117', name: 'Kostel sv. Jiljí', municipality: 'Nymburk', lat: 50.1856, lon: 15.0419, year: 1280, style: 'gotický', affiliation: 'Dominikáni', dedication: 'sv. Jiljí', note: 'Monumentální cihlový gotický chrám královského města Nymburk.' },
+      { id: 'db-118', name: 'Kostel sv. Petra a Pavla', municipality: 'Lysá nad Labem', lat: 50.2006, lon: 14.8358, year: 1352, style: 'barokní', affiliation: 'Augustiniáni', dedication: 'sv. Petr a Pavel', note: 'Barokní farní chrám v Lysé nad Labem.' },
+      { id: 'db-119', name: 'Kostel Nanebevzetí Panny Marie', municipality: 'Mladá Boleslav', lat: 50.4106, lon: 14.9022, year: 1352, style: 'gotický', affiliation: 'Diecézní', dedication: 'Panna Maria', note: 'Arciděkanský chrám v historickém jádru Mladé Boleslavi.' },
+      { id: 'db-120', name: 'Kostel sv. Bonaventury (Minoritský klášter)', municipality: 'Mladá Boleslav', lat: 50.4125, lon: 14.9044, year: 1346, style: 'gotický', affiliation: 'Minorité', dedication: 'sv. Bonaventura', note: 'Klášterní kostel minoritů založený pány z Michalovic.' },
+      { id: 'db-121', name: 'Klášter Hradiště nad Jizerou (Narození Panny Marie)', municipality: 'Klášter Hradiště nad Jizerou', lat: 50.5256, lon: 14.9453, year: 1177, style: 'románský', affiliation: 'Cisterciáci', dedication: 'Panna Maria', note: 'Rozsáhlý cisterciácký klášter založený z Plass.' },
+      { id: 'db-122', name: 'Kostel sv. Jakuba Většího', municipality: 'Mnichovo Hradiště', lat: 50.5272, lon: 14.9719, year: 1352, style: 'barokní', affiliation: 'Diecézní', dedication: 'sv. Jakub', note: 'Děkanský chrám v Mnichově Hradišti.' }
+    ];
+
+    // ----------------------------------------------------------------------------
+    // 2. GLOBÁLNÍ STAV APLIKACE
+    // ----------------------------------------------------------------------------
+    const state = {
+      allPoints: [],
+      filteredPoints: [],
+      patterns: [],
+      activePatternId: null,
+      showAllPatterns: false,
+      addPointMode: false,
+      measureMode: false,
+      measurePoints: [],
+      filters: {
+        minYear: 880,
+        maxYear: 1800,
+        styles: new Set(['románský', 'gotický', 'renesanční', 'barokní']),
+        selectedAffiliations: new Set(),
+        selectedDedications: new Set(),
+        dedicationSearch: '',
+        search: ''
+      },
+      params: {
+        detectLines: true,
+        detectCrosses: true,
+        detectTriangles: true,
+        detectHexagrams: true,
+        detectCircles: true,
+        lineExtensionKm: 50, // Geodetické protažení na každou stranu (0 - 100 km)
+        tolDist: 80,         // v metrech
+        tolAngle: 1.5,       // ve stupních
+        tolTriPct: 2.0,      // v procentech
+        minSpanKm: 1.5,      // min. délka jádra 1.5 km
+        maxSpanKm: 12        // max. délka jádra 12 km
+      },
+      histMode: 'none',
+      histOpacity: 0.85
+    };
+
+    const STYLE_COLORS = {
+      'románský': '#f59e0b',   // Amber
+      'gotický': '#0284c7',    // Sky/Cyan
+      'renesanční': '#9333ea', // Purple
+      'barokní': '#e11d48',    // Rose
+      'ostatní': '#059669'     // Emerald
+    };
+
+    const PATTERN_COLORS = {
+      'line': '#d97706',
+      'cross': '#db2777',
+      'triangle': '#0284c7',
+      'hexagram': '#7c3aed',
+      'circle': '#059669'
+    };
+
+    const PATTERN_LABELS = {
+      'line': 'Přímka (Ley line)',
+      'cross': 'Ortogonální kříž (90°)',
+      'triangle': 'Trojúhelník',
+      'hexagram': 'Hvězda (Hexagram)',
+      'circle': 'Kružnice / Věnec'
+    };
+
+    // ----------------------------------------------------------------------------
+    // 3. INICIALIZACE LEAFLET MAPY A SPOLEHLIVÝCH PODKLADŮ (ČÚZK + OPENTOPOMAP)
+    // ----------------------------------------------------------------------------
+    const map = L.map('map', {
+      center: [50.06, 14.52],
+      zoom: 10,
+      zoomControl: false,
+      preferCanvas: true
+    });
+
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+    L.control.scale({ imperial: false, metric: true, position: 'bottomleft' }).addTo(map);
+
+    // Zjednodušené toky hlavních středočeských řek (Vltava, Labe, Sázava, Berounka) pro čisté vektorové plátno
+    const CZECH_RIVERS_GEOJSON = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { name: 'Vltava' },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [14.432, 49.680], [14.438, 49.750], [14.435, 49.820], [14.398, 49.886],
+              [14.392, 49.975], [14.414, 50.045], [14.414, 50.086], [14.435, 50.112],
+              [14.398, 50.132], [14.374, 50.173], [14.355, 50.235], [14.325, 50.285],
+              [14.420, 50.320], [14.472, 50.351]
+            ]
+          }
+        },
+        {
+          type: 'Feature',
+          properties: { name: 'Labe' },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [15.320, 50.015], [15.200, 50.030], [15.130, 50.085], [15.042, 50.185],
+              [14.920, 50.175], [14.835, 50.195], [14.760, 50.165], [14.672, 50.195],
+              [14.585, 50.228], [14.515, 50.275], [14.474, 50.352], [14.420, 50.405],
+              [14.350, 50.435], [14.155, 50.460]
+            ]
+          }
+        },
+        {
+          type: 'Feature',
+          properties: { name: 'Sázava' },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [15.150, 49.730], [15.040, 49.780], [14.960, 49.855], [14.897, 49.877],
+              [14.810, 49.865], [14.730, 49.850], [14.675, 49.845], [14.593, 49.831],
+              [14.490, 49.865], [14.398, 49.886]
+            ]
+          }
+        },
+        {
+          type: 'Feature',
+          properties: { name: 'Berounka' },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [13.872, 50.035], [13.960, 50.010], [14.072, 49.964], [14.105, 49.948],
+              [14.188, 49.935], [14.274, 49.927], [14.335, 49.955], [14.392, 49.978]
+            ]
+          }
+        }
+      ]
+    };
+
+    const blankGridLayer = L.gridLayer({
+      attribution: 'Čisté analytické plátno + hydrografie Čech'
+    });
+    blankGridLayer.createTile = function() {
+      const tile = document.createElement('canvas');
+      const size = this.getTileSize();
+      tile.width = size.x;
+      tile.height = size.y;
+      const ctx = tile.getContext('2d');
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, size.x, size.y);
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0, 0, size.x, size.y);
+      return tile;
+    };
+
+    const riversOverlayLayer = L.geoJSON(CZECH_RIVERS_GEOJSON, {
+      style: {
+        color: '#93c5fd',
+        weight: 2.5,
+        opacity: 0.85
+      },
+      onEachFeature: (feature, layer) => {
+        if (feature.properties && feature.properties.name) {
+          layer.bindTooltip(feature.properties.name, { sticky: true, className: 'text-[10px]' });
+        }
+      }
+    });
+
+    const baseLayers = {
+      topoLight: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        subdomains: ['a', 'b', 'c'],
+        attribution: 'Mapová data: &copy; OpenStreetMap, SRTM | Styl: &copy; OpenTopoMap',
+        maxZoom: 17,
+        className: 'topo-subtle-tiles'
+      }),
+      topoVivid: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        subdomains: ['a', 'b', 'c'],
+        attribution: 'Mapová data: &copy; OpenStreetMap, SRTM | Styl: &copy; OpenTopoMap',
+        maxZoom: 17
+      }),
+      osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap přispěvatelé',
+        maxZoom: 19
+      }),
+      cuzkZm: L.tileLayer('https://ags.cuzk.cz/arcgis1/rest/services/ZTM_WM/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; ČÚZK – Základní topografická mapa ČR (ZTM)',
+        maxZoom: 18
+      }),
+      blank: L.layerGroup([blankGridLayer, riversOverlayLayer])
+    };
+
+    /**
+     * Spolehlivá vlastní dlaždicová vrstva pro přímý ArcGIS REST export (MapServer/export i ImageServer/export)
+     * bez crossOrigin atributu a s přesným výpočtem Web Mercator (EPSG:3857) bboxu.
+     */
+    function createArcGisRestExportLayer(exportUrl, options = {}) {
+      const ArcGisExportLayer = L.TileLayer.extend({
+        getTileUrl: function(coords) {
+          const tileSize = this.getTileSize();
+          const nwPoint = coords.scaleBy(tileSize);
+          const sePoint = nwPoint.add(tileSize);
+          const nw = this._map.unproject(nwPoint, coords.z);
+          const se = this._map.unproject(sePoint, coords.z);
+
+          // Převod WGS84 (lat/lon) na Web Mercator (EPSG:3857) metry
+          const R = 6378137.0;
+          const minX = nw.lng * Math.PI / 180 * R;
+          const maxY = Math.log(Math.tan((90 + nw.lat) * Math.PI / 360)) * R;
+          const maxX = se.lng * Math.PI / 180 * R;
+          const minY = Math.log(Math.tan((90 + se.lat) * Math.PI / 360)) * R;
+
+          const params = [
+            `bbox=${minX.toFixed(3)},${minY.toFixed(3)},${maxX.toFixed(3)},${maxY.toFixed(3)}`,
+            'bboxSR=3857',
+            'imageSR=3857',
+            `size=${tileSize.x},${tileSize.y}`,
+            'format=png32',
+            'transparent=true',
+            'f=image'
+          ];
+          if (options.layers) {
+            params.push(`layers=${encodeURIComponent(options.layers)}`);
+          }
+          return `${exportUrl}?${params.join('&')}`;
+        }
+      });
+
+      return new ArcGisExportLayer('', {
+        tileSize: 256,
+        opacity: options.opacity ?? 0.85,
+        zIndex: options.zIndex ?? 250,
+        attribution: options.attribution || '&copy; ČÚZK'
+      });
+    }
+
+    // Historické mapové a LiDAR vrstvy ČÚZK přes přímý ArcGIS REST export
+    const historicalLayers = {
+      stabilni: createArcGisRestExportLayer('https://ags.cuzk.cz/arcgis2/rest/services/Archiv/cpo/MapServer/export', {
+        layers: 'show:0',
+        opacity: 0.85,
+        zIndex: 255,
+        attribution: '&copy; ČÚZK – Stabilní katastr (císařské povinné otisky, 1826–1843)'
+      }),
+      ii_voj: createArcGisRestExportLayer('https://ags.cuzk.cz/arcgis2/rest/services/Archiv/2vm/MapServer/export', {
+        layers: 'show:0',
+        opacity: 0.85,
+        zIndex: 245,
+        attribution: '&copy; ČÚZK / MŽP – II. vojenské mapování (1836–1852)'
+      }),
+      iii_voj: createArcGisRestExportLayer('https://ags.cuzk.cz/arcgis2/rest/services/Archiv/3vm/MapServer/export', {
+        layers: 'show:0',
+        opacity: 0.85,
+        zIndex: 250,
+        attribution: '&copy; ČÚZK / MŽP – III. vojenské mapování (1876–1880)'
+      }),
+      dmr5g: createArcGisRestExportLayer('https://ags.cuzk.cz/arcgis2/rest/services/dmr5g/ImageServer/export', {
+        opacity: 0.85,
+        zIndex: 250,
+        attribution: '&copy; ČÚZK – DMR 5G (Stínovaný reliéf LiDAR)'
+      })
+    };
+
+    const historicalOverlayGroup = L.layerGroup().addTo(map);
+
+    function syncHistoricalOverlay() {
+      historicalOverlayGroup.clearLayers();
+      const mode = state.histMode;
+      const controlsBar = document.getElementById('histControlsBar');
+      const zoomHintBox = document.getElementById('histZoomHintBox');
+
+      if (mode === 'none') {
+        controlsBar.classList.add('hidden');
+        zoomHintBox.classList.add('hidden');
+        return;
+      }
+
+      controlsBar.classList.remove('hidden');
+      const currentZoom = map.getZoom();
+
+      if (mode === 'stabilni') {
+        // Dvouvrstvé měřítkové vykreslování: II. vojenské mapování jako spojitý základ + od zoomu >= 14 přes něj Stabilní katastr (cpo)
+        historicalLayers.ii_voj.setOpacity(state.histOpacity);
+        historicalOverlayGroup.addLayer(historicalLayers.ii_voj);
+
+        if (currentZoom >= 14) {
+          historicalLayers.stabilni.setOpacity(state.histOpacity);
+          historicalOverlayGroup.addLayer(historicalLayers.stabilni);
+          zoomHintBox.classList.add('hidden');
+        } else {
+          document.getElementById('histZoomHintText').textContent = `II. voj. (přibliž pro katastr z ≥ 14, nyní z=${currentZoom})`;
+          zoomHintBox.classList.remove('hidden');
+        }
+      } else if (historicalLayers[mode]) {
+        historicalLayers[mode].setOpacity(state.histOpacity);
+        historicalOverlayGroup.addLayer(historicalLayers[mode]);
+        zoomHintBox.classList.add('hidden');
+      }
+    }
+
+    map.on('zoomend', syncHistoricalOverlay);
+
+    // Výchozí spolehlivá vrstva: tlumený OpenTopoMap
+    baseLayers.topoLight.addTo(map);
+
+    setTimeout(() => map.invalidateSize(), 100);
+    setTimeout(() => map.invalidateSize(), 500);
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => map.invalidateSize());
+      ro.observe(document.getElementById('map'));
+    }
+
+    const markersLayer = L.layerGroup().addTo(map);
+    const patternsLayer = L.layerGroup().addTo(map);
+    const measureLayer = L.layerGroup().addTo(map);
+
+    // ----------------------------------------------------------------------------
+    // 4. PARSOVÁNÍ PATROCINIA (ZASVĚCENÍ) A AFILIACE
+    // ----------------------------------------------------------------------------
+    const DEDICATION_PATTERNS = [
+      { regex: /sv\.\s*václav/i, label: 'sv. Václav' },
+      { regex: /panny?\s*marie|nanebevzetí|narození\s*panny|zvěstování|navštívení/i, label: 'Panna Maria' },
+      { regex: /sv\.\s*jiří/i, label: 'sv. Jiří' },
+      { regex: /sv\.\s*mikuláš/i, label: 'sv. Mikuláš' },
+      { regex: /sv\.\s*petra\s*a\s*pavla/i, label: 'sv. Petr a Pavel' },
+      { regex: /sv\.\s*martin/i, label: 'sv. Martin' },
+      { regex: /sv\.\s*jakub/i, label: 'sv. Jakub' },
+      { regex: /sv\.\s*havl|sv\.\s*havel/i, label: 'sv. Havel' },
+      { regex: /sv\.\s*vavřin/i, label: 'sv. Vavřinec' },
+      { regex: /sv\.\s*kříž/i, label: 'sv. Kříž' },
+      { regex: /sv\.\s*kateřin/i, label: 'sv. Kateřina' },
+      { regex: /sv\.\s*ludmil/i, label: 'sv. Ludmila' },
+      { regex: /sv\.\s*vojtěch/i, label: 'sv. Vojtěch' },
+      { regex: /nejsvětější\s*trojic/i, label: 'Nejsvětější Trojice' },
+      { regex: /sv\.\s*jan[a]?\s*křtitel/i, label: 'sv. Jan Křtitel' },
+      { regex: /všech\s*svatých/i, label: 'Všichni svatí' },
+      { regex: /sv\.\s*jiljí/i, label: 'sv. Jiljí' },
+      { regex: /sv\.\s*bartoloměj/i, label: 'sv. Bartoloměj' },
+      { regex: /sv\.\s*prokop/i, label: 'sv. Prokop' },
+      { regex: /sv\.\s*markét/i, label: 'sv. Markéta' },
+      { regex: /sv\.\s*kliment/i, label: 'sv. Kliment' },
+      { regex: /sv\.\s*vít/i, label: 'sv. Vít' },
+      { regex: /sv\.\s*ann[ay]/i, label: 'sv. Anna' },
+      { regex: /sv\.\s*barbor/i, label: 'sv. Barbora' },
+      { regex: /sv\.\s*gothard/i, label: 'sv. Gothard' },
+      { regex: /sv\.\s*štěpán/i, label: 'sv. Štěpán' },
+      { regex: /sv\.\s*ondřej/i, label: 'sv. Ondřej' },
+      { regex: /sv\.\s*filipa\s*a\s*jakub/i, label: 'sv. Filip a Jakub' },
+      { regex: /sv\.\s*michael|sv\.\s*michal|archanděla\s*michaela/i, label: 'sv. Michael' }
+    ];
+
+    function detectDedicationFromName(name, tags = {}) {
+      const sourceText = [tags['dedication'], tags['saint'], name].filter(Boolean).join(' ');
+      if (!sourceText) return 'Neurčeno';
+      for (const item of DEDICATION_PATTERNS) {
+        if (item.regex.test(sourceText)) return item.label;
+      }
+      const match = sourceText.match(/(?:sv\.|svatého|svaté)\s+([A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž]+)/i);
+      if (match) return 'sv. ' + match[1];
+      return 'Ostatní / Neurčeno';
+    }
+
+    function detectAffiliationFromName(name, tags = {}) {
+      const combined = [name, tags['operator'], tags['community'], tags['monastery'], tags['denomination'], tags['description']].filter(Boolean).join(' ').toLowerCase();
+      if (combined.includes('benediktin')) return 'Benediktini';
+      if (combined.includes('cisterci')) return 'Cisterciáci';
+      if (combined.includes('premonstrát')) return 'Premonstráti';
+      if (combined.includes('jezuit')) return 'Jezuité';
+      if (combined.includes('johanit') || combined.includes('maltéz')) return 'Johanité';
+      if (combined.includes('křižovník')) return 'Křižovníci';
+      if (combined.includes('františkán') || combined.includes('klaris')) return 'Františkáni';
+      if (combined.includes('minorit')) return 'Minorité';
+      if (combined.includes('augustinián')) return 'Augustiniáni';
+      if (combined.includes('dominikán')) return 'Dominikáni';
+      if (combined.includes('kapucín')) return 'Kapucíni';
+      if (combined.includes('piarist')) return 'Piaristé';
+      if (combined.includes('kapitul') || combined.includes('katedrál')) return 'Kapitula';
+      return 'Diecézní';
+    }
+
+    function parseYearAndStyleFromOsmTags(tags = {}) {
+      let year = null;
+      const rawDate = tags['start_date'] || tags['year_of_construction'] || tags['construction_date'] || tags['building:year_built'] || '';
+      if (rawDate) {
+        const yearMatch = String(rawDate).match(/\b(8\d{2}|9\d{2}|1[0-9]{3})\b/);
+        if (yearMatch) {
+          year = parseInt(yearMatch[1], 10);
+        } else {
+          const centMatch = String(rawDate).match(/\bC(9|1[0-9])\b/i);
+          if (centMatch) {
+            year = (parseInt(centMatch[1], 10) - 1) * 100 + 50;
+          }
+        }
+      }
+
+      const rawStyle = (tags['architectural_style'] || tags['building:architecture'] || tags['style'] || '').toLowerCase();
+      let style = null;
+      if (rawStyle.includes('romanesque') || rawStyle.includes('román')) style = 'románský';
+      else if (rawStyle.includes('gothic') || rawStyle.includes('gotik') || rawStyle.includes('gotick')) style = 'gotický';
+      else if (rawStyle.includes('renaissance') || rawStyle.includes('renesan')) style = 'renesanční';
+      else if (rawStyle.includes('baroque') || rawStyle.includes('barok') || rawStyle.includes('rococo') || rawStyle.includes('rokok')) style = 'barokní';
+
+      if (!style && year) {
+        if (year < 1250) style = 'románský';
+        else if (year < 1525) style = 'gotický';
+        else if (year < 1625) style = 'renesanční';
+        else if (year <= 1800) style = 'barokní';
+        else style = 'ostatní';
+      }
+
+      return { year, style: style || 'gotický' };
+    }
+
+    // ----------------------------------------------------------------------------
+    // 4B. IMPORT Z OPENSTREETMAP (OVERPASS API) & VOLITELNÉ OBOHACENÍ Z WIKIDATA API
+    // ----------------------------------------------------------------------------
+    const WIKIDATA_STYLE_MAP = {
+      'Q46261': 'románský',
+      'Q176483': 'gotický',
+      'Q10924220': 'gotický',
+      'Q1161874': 'gotický',
+      'Q236122': 'renesanční',
+      'Q37853': 'barokní',
+      'Q840829': 'barokní',
+      'Q122960': 'barokní'
+    };
+
+    const WIKIDATA_ORDER_MAP = {
+      'Q131132': 'Benediktini',
+      'Q166861': 'Cisterciáci',
+      'Q335449': 'Premonstráti',
+      'Q36380': 'Jezuité',
+      'Q165005': 'Františkáni',
+      'Q736197': 'Minorité',
+      'Q29075': 'Augustiniáni',
+      'Q131454': 'Dominikáni',
+      'Q124862': 'Kapucíni',
+      'Q1125824': 'Piaristé',
+      'Q187549': 'Johanité',
+      'Q1790886': 'Křižovníci'
+    };
+
+    async function enrichPointsFromWikidata(targetPoints) {
+      const pointsWithQid = targetPoints.filter(p => p.wikidataQid && /^Q\d+$/.test(p.wikidataQid));
+      if (!pointsWithQid.length) return 0;
+
+      const uniqueQids = Array.from(new Set(pointsWithQid.map(p => p.wikidataQid)));
+      const entitiesMap = {};
+
+      for (let i = 0; i < uniqueQids.length; i += 40) {
+        const batch = uniqueQids.slice(i, i + 40);
+        const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${batch.join('|')}&props=claims&languages=cs&format=json&origin=*`;
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) continue;
+          const data = await resp.json();
+          if (data && data.entities) {
+            Object.assign(entitiesMap, data.entities);
+          }
+        } catch (err) {
+          console.warn('Chyba při dotazu na Wikidata API:', err);
+        }
+      }
+
+      const extraQidsToResolve = new Set();
+      for (const qid of Object.keys(entitiesMap)) {
+        const claims = entitiesMap[qid]?.claims || {};
+        if (claims.P825) {
+          claims.P825.forEach(c => {
+            const id = c?.mainsnak?.datavalue?.value?.id;
+            if (id) extraQidsToResolve.add(id);
+          });
+        }
+        if (claims.P611) {
+          claims.P611.forEach(c => {
+            const id = c?.mainsnak?.datavalue?.value?.id;
+            if (id && !WIKIDATA_ORDER_MAP[id]) extraQidsToResolve.add(id);
+          });
+        }
+      }
+
+      const labelsMap = {};
+      const extraList = Array.from(extraQidsToResolve);
+      for (let i = 0; i < extraList.length; i += 40) {
+        const batch = extraList.slice(i, i + 40);
+        const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${batch.join('|')}&props=labels&languages=cs|en&format=json&origin=*`;
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) continue;
+          const data = await resp.json();
+          if (data && data.entities) {
+            for (const [id, ent] of Object.entries(data.entities)) {
+              labelsMap[id] = ent?.labels?.cs?.value || ent?.labels?.en?.value || '';
+            }
+          }
+        } catch (err) {
+          console.warn('Chyba při překladu štítků z Wikidat:', err);
+        }
+      }
+
+      let updatedCount = 0;
+      for (const pt of pointsWithQid) {
+        const ent = entitiesMap[pt.wikidataQid];
+        if (!ent || !ent.claims) continue;
+        const claims = ent.claims;
+        let touched = false;
+
+        // P571: datum založení / vzniku
+        if (claims.P571 && claims.P571[0]?.mainsnak?.datavalue?.value?.time) {
+          const timeStr = claims.P571[0].mainsnak.datavalue.value.time;
+          const m = timeStr.match(/^[+-]?0*(\d{3,4})-/);
+          if (m) {
+            const wdYear = parseInt(m[1], 10);
+            if (!isNaN(wdYear) && wdYear >= 800 && wdYear <= 2025) {
+              pt.year = wdYear;
+              touched = true;
+            }
+          }
+        }
+
+        // P149: architektonický sloh
+        if (claims.P149) {
+          for (const c of claims.P149) {
+            const styleQid = c?.mainsnak?.datavalue?.value?.id;
+            if (styleQid && WIKIDATA_STYLE_MAP[styleQid]) {
+              pt.style = WIKIDATA_STYLE_MAP[styleQid];
+              touched = true;
+              break;
+            }
+          }
+        }
+
+        // P611: řád / náboženský řád
+        if (claims.P611) {
+          for (const c of claims.P611) {
+            const orderQid = c?.mainsnak?.datavalue?.value?.id;
+            if (orderQid) {
+              if (WIKIDATA_ORDER_MAP[orderQid]) {
+                pt.affiliation = WIKIDATA_ORDER_MAP[orderQid];
+                touched = true;
+                break;
+              } else if (labelsMap[orderQid]) {
+                pt.affiliation = detectAffiliationFromName(labelsMap[orderQid]);
+                touched = true;
+                break;
+              }
+            }
+          }
+        }
+
+        // P825: zasvěceno komu (patrocinium)
+        if (claims.P825) {
+          for (const c of claims.P825) {
+            const dedQid = c?.mainsnak?.datavalue?.value?.id;
+            if (dedQid && labelsMap[dedQid]) {
+              const detected = detectDedicationFromName(labelsMap[dedQid]);
+              pt.dedication = (detected !== 'Ostatní / Neurčeno' && detected !== 'Neurčeno')
+                ? detected
+                : labelsMap[dedQid];
+              touched = true;
+              break;
+            }
+          }
+        }
+
+        if (touched) {
+          pt.wikidataEnriched = true;
+          updatedCount++;
+        }
+      }
+
+      return updatedCount;
+    }
+
+    async function fetchChurchesFromOSM() {
+      const currentZoom = map.getZoom();
+      const statusEl = document.getElementById('osmStatusText');
+      const btn = document.getElementById('fetchOsmBtn');
+      const spinner = document.getElementById('osmSpinner');
+
+      if (currentZoom < 10) {
+        showToast('Výřez mapy je příliš velký. Přibližte alespoň na zoom 11 (úroveň okresu).', 'error');
+        statusEl.innerHTML = `<span class="text-rose-400">Příliš velký výřez (zoom=${currentZoom}). Přibližte na okres (zoom &ge; 11).</span>`;
+        return;
+      }
+
+      const parseTags = document.getElementById('osmParseTagsChk').checked;
+      const useWikidata = document.getElementById('osmWikidataChk').checked;
+      const pre1800Only = document.getElementById('osmPre1800OnlyChk').checked;
+
+      const bounds = map.getBounds();
+      const s = bounds.getSouth().toFixed(5);
+      const w = bounds.getWest().toFixed(5);
+      const n = bounds.getNorth().toFixed(5);
+      const e = bounds.getEast().toFixed(5);
+
+      // Kompaktní a rychlý Overpass QL dotaz (nwr = node, way, relation najednou)
+      const query = `[out:json][timeout:18];(nwr["amenity"="place_of_worship"]["religion"="christian"](${s},${w},${n},${e});nwr["building"~"^(church|chapel|cathedral|monastery)$"](${s},${w},${n},${e}););out center tags;`;
+
+      const endpoints = [
+        { name: 'overpass-api.de', url: 'https://overpass-api.de/api/interpreter' },
+        { name: 'maps.mail.ru', url: 'https://maps.mail.ru/osm/tools/overpass/api/interpreter' },
+        { name: 'private.coffee', url: 'https://overpass.private.coffee/api/interpreter' },
+        { name: 'kumi.systems', url: 'https://overpass.kumi.systems/api/interpreter' }
+      ];
+
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+      setStatus('Dotazuji Overpass API...');
+
+      let osmData = null;
+      let lastErr = '';
+      let usedServer = '';
+
+      for (let idx = 0; idx < endpoints.length; idx++) {
+        const ep = endpoints[idx];
+        statusEl.innerHTML = `<span class="text-cyan-300">Zkouším server ${idx + 1}/${endpoints.length} (${ep.name})...</span>`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+        try {
+          const resp = await fetch(ep.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+            body: 'data=' + encodeURIComponent(query),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (!resp.ok) {
+            lastErr = `${ep.name}: HTTP ${resp.status}`;
+            continue;
+          }
+          const json = await resp.json();
+          if (json && Array.isArray(json.elements)) {
+            osmData = json;
+            usedServer = ep.name;
+            break;
+          }
+        } catch (err) {
+          clearTimeout(timeoutId);
+          lastErr = err.name === 'AbortError'
+            ? `${ep.name}: vypršel limit 12 s`
+            : `${ep.name}: ${err.message || 'síťová chyba'}`;
+        }
+      }
+
+      if (!osmData || !Array.isArray(osmData.elements)) {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+        statusEl.innerHTML = `<span class="text-rose-400">Žádný ze 4 Overpass serverů neodpověděl (${lastErr}). Zkuste přiblížit na menší oblast (zoom &ge; 12).</span>`;
+        showToast('Nepodařilo se stáhnout data z OSM – zkuste menší výřez mapy.', 'error');
+        setStatus('Chyba OSM importu');
+        return;
+      }
+
+      statusEl.innerHTML = `<span class="text-cyan-300">Server <strong>${usedServer}</strong> vrátil ${osmData.elements.length} prvků, zpracovávám...</span>`;
+
+      const rawCandidates = [];
+      for (const el of osmData.elements) {
+        const lat = el.lat ?? el.center?.lat;
+        const lon = el.lon ?? el.center?.lon;
+        if (lat == null || lon == null) continue;
+
+        const tags = el.tags || {};
+        // Vynecháme drobné boží muka / křížky u cest
+        if (tags.historic === 'wayside_cross' || tags.historic === 'wayside_shrine') continue;
+
+        const defaultType = tags.building === 'chapel' ? 'Kaple' : (tags.building === 'monastery' ? 'Klášter' : 'Kostel');
+        const name = tags['name:cs'] || tags['name'] || `${defaultType} (OSM #${el.id})`;
+        const municipality = tags['addr:city'] || tags['addr:town'] || tags['addr:village'] || tags['addr:suburb'] || tags['is_in:city'] || '';
+
+        let year = null;
+        let style = 'gotický';
+        let affiliation = 'Diecézní';
+        let dedication = 'Neurčeno';
+
+        if (parseTags) {
+          const parsed = parseYearAndStyleFromOsmTags(tags);
+          year = parsed.year;
+          style = parsed.style;
+          affiliation = detectAffiliationFromName(name, tags);
+          dedication = detectDedicationFromName(name, tags);
+        }
+
+        const wikidataQid = tags.wikidata && /^Q\d+$/.test(tags.wikidata.trim()) ? tags.wikidata.trim() : null;
+
+        rawCandidates.push({
+          id: `osm-${el.type}-${el.id}`,
+          osmId: `${el.type}/${el.id}`,
+          wikidataQid,
+          name,
+          municipality,
+          lat: parseFloat(lat),
+          lon: parseFloat(lon),
+          year,
+          style,
+          affiliation,
+          dedication,
+          note: `Načteno z OpenStreetMap (${el.type}/${el.id})${wikidataQid ? ' • Wikidata ' + wikidataQid : ''}.`
+        });
+      }
+
+      // Sloučení duplicit vůči již existujícím bodům v databázi (vzdálenost < 35 m nebo shodné OSM ID)
+      const newlyAdded = [];
+      for (const cand of rawCandidates) {
+        const isDuplicate = state.allPoints.some(existing => {
+          if (existing.id === cand.id) return true;
+          const dist = haversineDistance(existing.lat, existing.lon, cand.lat, cand.lon);
+          return dist < 35;
+        });
+        if (!isDuplicate) {
+          newlyAdded.push(cand);
+        }
+      }
+
+      let wdEnriched = 0;
+      if (useWikidata && newlyAdded.length > 0) {
+        statusEl.innerHTML = `<span class="text-amber-300">Načteno ${newlyAdded.length} nových objektů, dohledávám podrobnosti z Wikidat...</span>`;
+        wdEnriched = await enrichPointsFromWikidata(newlyAdded);
+      }
+
+      let finalToAdd = newlyAdded;
+      let skippedModern = 0;
+      if (pre1800Only) {
+        finalToAdd = newlyAdded.filter(p => {
+          if (p.year && p.year > 1800) {
+            skippedModern++;
+            return false;
+          }
+          return true;
+        });
+      }
+
+      // Nastavíme výchozí odhadovaný rok 1350 pro stavby bez známé datace, aby nebyly skryty časovým filtrem 880–1800
+      let withDedication = 0;
+      let withYear = 0;
+      finalToAdd.forEach(p => {
+        if (p.year) withYear++;
+        else p.year = 1350;
+        if (p.dedication && p.dedication !== 'Neurčeno' && p.dedication !== 'Ostatní / Neurčeno') withDedication++;
+      });
+
+      state.allPoints.push(...finalToAdd);
+
+      btn.disabled = false;
+      spinner.classList.add('hidden');
+
+      const hasUnenrichedWd = state.allPoints.some(p => p.wikidataQid && !p.wikidataEnriched);
+      const enrichBtn = document.getElementById('enrichWikidataBtn');
+      if (hasUnenrichedWd) {
+        enrichBtn.classList.remove('hidden');
+      } else {
+        enrichBtn.classList.add('hidden');
+      }
+
+      renderFacetPills();
+      applyFilters();
+
+      const summaryParts = [
+        `[${usedServer}] Přidáno <strong>${finalToAdd.length}</strong> nových OSM staveb (z ${rawCandidates.length} v výřezu)`,
+        `zasvěcení: <strong>${withDedication}</strong>`,
+        `datace: <strong>${withYear}</strong>`
+      ];
+      if (wdEnriched > 0) summaryParts.push(`Wikidata: <strong>${wdEnriched}</strong>`);
+      if (skippedModern > 0) summaryParts.push(`vyřazeno po r. 1800: ${skippedModern}`);
+
+      statusEl.innerHTML = `<span class="text-emerald-300">${summaryParts.join(' • ')}</span>`;
+      setStatus(`OSM (${usedServer}): +${finalToAdd.length} staveb`);
+      showToast(`Načteno ${finalToAdd.length} nových kostelů/kaplí z OSM.`);
+    }
+
+    // ----------------------------------------------------------------------------
+    // 5. GEODETICKÉ A GEOMETRICKÉ FUNKCE (VČETNĚ SFÉRICKÉHO PROTAŽENÍ LINIÍ)
+    // ----------------------------------------------------------------------------
+    const EARTH_RADIUS = 6371000;
+    const DEG2RAD = Math.PI / 180;
+    const RAD2DEG = 180 / Math.PI;
+
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const dLat = (lat2 - lat1) * DEG2RAD;
+      const dLon = (lon2 - lon1) * DEG2RAD;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * DEG2RAD) * Math.cos(lat2 * DEG2RAD) * Math.sin(dLon / 2) ** 2;
+      return 2 * EARTH_RADIUS * Math.asin(Math.sqrt(a));
+    }
+
+    function calculateAzimuth(lat1, lon1, lat2, lon2) {
+      const phi1 = lat1 * DEG2RAD;
+      const phi2 = lat2 * DEG2RAD;
+      const dLambda = (lon2 - lon1) * DEG2RAD;
+      const y = Math.sin(dLambda) * Math.cos(phi2);
+      const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+      return ((Math.atan2(y, x) * RAD2DEG) + 360) % 360;
+    }
+
+    /**
+     * Výpočet koncového bodu na sféře z počátečního bodu, azimutu (ve stupních) a vzdálenosti (v metrech)
+     */
+    function destinationPoint(lat, lon, azimuthDeg, distanceM) {
+      const angularDist = distanceM / EARTH_RADIUS;
+      const bearing = azimuthDeg * DEG2RAD;
+      const lat1 = lat * DEG2RAD;
+      const lon1 = lon * DEG2RAD;
+
+      const sinLat2 = Math.sin(lat1) * Math.cos(angularDist) +
+                      Math.cos(lat1) * Math.sin(angularDist) * Math.cos(bearing);
+      const lat2 = Math.asin(Math.max(-1, Math.min(1, sinLat2)));
+
+      const y = Math.sin(bearing) * Math.sin(angularDist) * Math.cos(lat1);
+      const x = Math.cos(angularDist) - Math.sin(lat1) * Math.sin(lat2);
+      const lon2 = lon1 + Math.atan2(y, x);
+
+      return [lat2 * RAD2DEG, ((lon2 * RAD2DEG + 540) % 360) - 180];
+    }
+
+    function projectToLocalMeters(points) {
+      if (!points.length) return { projected: [], refLat: 50, refLon: 14.5 };
+      let sumLat = 0, sumLon = 0;
+      for (const p of points) {
+        sumLat += p.lat;
+        sumLon += p.lon;
+      }
+      const refLat = sumLat / points.length;
+      const refLon = sumLon / points.length;
+      const cosRef = Math.cos(refLat * DEG2RAD);
+
+      const projected = points.map((p, idx) => ({
+        ...p,
+        idx,
+        x: (p.lon - refLon) * DEG2RAD * EARTH_RADIUS * cosRef,
+        y: (p.lat - refLat) * DEG2RAD * EARTH_RADIUS
+      }));
+
+      return { projected, refLat, refLon };
+    }
+
+    function unprojectFromLocalMeters(x, y, refLat, refLon) {
+      const cosRef = Math.cos(refLat * DEG2RAD);
+      return [
+        refLat + (y / EARTH_RADIUS) * RAD2DEG,
+        refLon + (x / (EARTH_RADIUS * cosRef)) * RAD2DEG
+      ];
+    }
+
+    function pointToSegmentMetrics(px, py, ax, ay, bx, by) {
+      const dx = bx - ax;
+      const dy = by - ay;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) return { dist: Math.hypot(px - ax, py - ay), t: 0 };
+      const t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+      const projX = ax + t * dx;
+      const projY = ay + t * dy;
+      return { dist: Math.hypot(px - projX, py - projY), t };
+    }
+
+    function circumcircle(p1, p2, p3) {
+      const D = 2 * (p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y));
+      if (Math.abs(D) < 1e-3) return null;
+      const p1Sq = p1.x * p1.x + p1.y * p1.y;
+      const p2Sq = p2.x * p2.x + p2.y * p2.y;
+      const p3Sq = p3.x * p3.x + p3.y * p3.y;
+
+      const cx = (p1Sq * (p2.y - p3.y) + p2Sq * (p3.y - p1.y) + p3Sq * (p1.y - p2.y)) / D;
+      const cy = (p1Sq * (p3.x - p2.x) + p2Sq * (p1.x - p3.x) + p3Sq * (p2.x - p1.x)) / D;
+      const r = Math.hypot(p1.x - cx, p1.y - cy);
+      return { cx, cy, r };
+    }
+
+    function segmentIntersection(a, b, c, d) {
+      const denom = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+      if (Math.abs(denom) < 1e-6) return null;
+      const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / denom;
+      const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / denom;
+      if (t > 0.15 && t < 0.85 && u > 0.15 && u < 0.85) {
+        return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y), t, u };
+      }
+      return null;
+    }
+
+    /**
+     * Vyhodnotí tematickou shodu zúčastněných kostelů v nalezeném vzorci
+     */
+    function analyzePatternThematicMatch(pts) {
+      const badges = [];
+      let hasMatch = false;
+
+      // 1. Společné zasvěcení
+      const dedCounts = {};
+      pts.forEach(p => {
+        if (p.dedication && p.dedication !== 'Neurčeno' && p.dedication !== 'Ostatní / Neurčeno') {
+          dedCounts[p.dedication] = (dedCounts[p.dedication] || 0) + 1;
+        }
+      });
+      for (const [ded, cnt] of Object.entries(dedCounts)) {
+        if (cnt === pts.length) {
+          badges.push({ label: `100% zasvěcení: ${ded}`, color: 'amber' });
+          hasMatch = true;
+        } else if (cnt >= 2 && pts.length <= 4) {
+          badges.push({ label: `${cnt}/${pts.length}× ${ded}`, color: 'amber' });
+          hasMatch = true;
+        }
+      }
+
+      // 2. Společná řádová afiliace (mimo běžné diecézní)
+      const affCounts = {};
+      pts.forEach(p => {
+        if (p.affiliation && p.affiliation !== 'Diecézní') {
+          affCounts[p.affiliation] = (affCounts[p.affiliation] || 0) + 1;
+        }
+      });
+      for (const [aff, cnt] of Object.entries(affCounts)) {
+        if (cnt >= 2) {
+          badges.push({ label: `Řád (${cnt}×): ${aff}`, color: 'cyan' });
+          hasMatch = true;
+        }
+      }
+
+      // 3. Časová blízkost založení (rozpětí <= 50 let)
+      const years = pts.map(p => p.year).filter(Boolean);
+      if (years.length === pts.length) {
+        const spanYears = Math.max(...years) - Math.min(...years);
+        if (spanYears <= 50) {
+          badges.push({ label: `Současný vznik (Δ ${spanYears} let)`, color: 'emerald' });
+          hasMatch = true;
+        }
+      }
+
+      return { hasMatch, badges };
+    }
+
+    // ----------------------------------------------------------------------------
+    // 6. ALGORITMY PRO DETEKCI GEOMETRICKÝCH VZORCŮ
+    // ----------------------------------------------------------------------------
+    function runGeometricDetection(points, options) {
+      const results = [];
+      const n = points.length;
+      if (n < 3) return results;
+
+      const { projected, refLat, refLon } = projectToLocalMeters(points);
+      const minSpanM = options.minSpanKm * 1000;
+      const maxSpanM = (options.maxSpanKm || 12) * 1000;
+      const tolDist = options.tolDist;
+
+      const distMatrix = Array.from({ length: n }, () => new Float64Array(n));
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const d = Math.hypot(projected[i].x - projected[j].x, projected[i].y - projected[j].y);
+          distMatrix[i][j] = d;
+          distMatrix[j][i] = d;
+        }
+      }
+
+      // A. PŘÍMKY (LEY LINES)
+      if (options.detectLines) {
+        const lineCandidates = [];
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const span = distMatrix[i][j];
+            if (span < minSpanM || span > maxSpanM) continue;
+
+            const collinear = [projected[i], projected[j]];
+            let maxDev = 0;
+
+            for (let k = 0; k < n; k++) {
+              if (k === i || k === j) continue;
+              const { dist, t } = pointToSegmentMetrics(
+                projected[k].x, projected[k].y,
+                projected[i].x, projected[i].y,
+                projected[j].x, projected[j].y
+              );
+              if (t > 0.03 && t < 0.97 && dist <= tolDist) {
+                collinear.push({ ...projected[k], _t: t });
+                if (dist > maxDev) maxDev = dist;
+              }
+            }
+
+            if (collinear.length >= 3) {
+              collinear[0]._t = 0;
+              collinear[1]._t = 1;
+              collinear.sort((a, b) => a._t - b._t);
+
+              const sortedIds = [...collinear].map(p => p.id).sort().join('-');
+              const az = calculateAzimuth(collinear[0].lat, collinear[0].lon, collinear[collinear.length - 1].lat, collinear[collinear.length - 1].lon);
+              const thematic = analyzePatternThematicMatch(collinear);
+
+              lineCandidates.push({
+                id: `line-${sortedIds}`,
+                type: 'line',
+                points: collinear,
+                count: collinear.length,
+                lengthKm: span / 1000,
+                azimuth: az,
+                maxDeviationM: maxDev,
+                thematic,
+                score: (maxDev / tolDist) / (collinear.length - 1)
+              });
+            }
+          }
+        }
+
+        const uniqueLines = new Map();
+        for (const item of lineCandidates) {
+          if (!uniqueLines.has(item.id) || uniqueLines.get(item.id).maxDeviationM > item.maxDeviationM) {
+            uniqueLines.set(item.id, item);
+          }
+        }
+        results.push(...Array.from(uniqueLines.values())
+          .sort((a, b) => b.count - a.count || a.maxDeviationM - b.maxDeviationM)
+          .slice(0, 50));
+      }
+
+      // B. TROJÚHELNÍKY A HEXAGRAMY
+      const equilateralTriangles = [];
+      const allFoundTriangles = [];
+      if (options.detectTriangles || options.detectHexagrams) {
+        const relTol = options.tolTriPct / 100;
+
+        for (let i = 0; i < n - 2; i++) {
+          for (let j = i + 1; j < n - 1; j++) {
+            const d12 = distMatrix[i][j];
+            if (d12 < minSpanM || d12 > maxSpanM) continue;
+
+            for (let k = j + 1; k < n; k++) {
+              const d23 = distMatrix[j][k];
+              const d13 = distMatrix[i][k];
+              if (d23 < minSpanM || d13 < minSpanM || d23 > maxSpanM || d13 > maxSpanM) continue;
+
+              const avgSide = (d12 + d23 + d13) / 3;
+              const maxSideDiff = Math.max(
+                Math.abs(d12 - avgSide),
+                Math.abs(d23 - avgSide),
+                Math.abs(d13 - avgSide)
+              );
+              const relErr = maxSideDiff / avgSide;
+
+              const sortedSides = [d12, d23, d13].sort((a, b) => a - b);
+              const isoErr1 = Math.abs(sortedSides[1] - sortedSides[0]) / sortedSides[1];
+              const isoErr2 = Math.abs(sortedSides[2] - sortedSides[1]) / sortedSides[2];
+              const bestIsoErr = Math.min(isoErr1, isoErr2);
+
+              const isEquilateral = relErr <= relTol;
+              const isIsosceles = !isEquilateral && bestIsoErr <= relTol * 0.6 && (sortedSides[2] / sortedSides[0] < 1.85);
+
+              if (isEquilateral || isIsosceles) {
+                const cx = (projected[i].x + projected[j].x + projected[k].x) / 3;
+                const cy = (projected[i].y + projected[j].y + projected[k].y) / 3;
+                const centerLatLon = unprojectFromLocalMeters(cx, cy, refLat, refLon);
+                const triPts = [projected[i], projected[j], projected[k]];
+                const thematic = analyzePatternThematicMatch(triPts);
+
+                const triObj = {
+                  id: `tri-${projected[i].id}-${projected[j].id}-${projected[k].id}`,
+                  type: 'triangle',
+                  subType: isEquilateral ? 'rovnostranný' : 'rovnoramenný',
+                  points: triPts,
+                  avgSideKm: avgSide / 1000,
+                  sidesKm: [d12 / 1000, d23 / 1000, d13 / 1000],
+                  relErrorPct: (isEquilateral ? relErr : bestIsoErr) * 100,
+                  maxDeviationM: maxSideDiff,
+                  centroid: { x: cx, y: cy, lat: centerLatLon[0], lon: centerLatLon[1] },
+                  thematic,
+                  score: isEquilateral ? relErr : bestIsoErr + 0.05
+                };
+                allFoundTriangles.push(triObj);
+                if (isEquilateral) equilateralTriangles.push(triObj);
+              }
+            }
+          }
+        }
+
+        allFoundTriangles.sort((a, b) => a.score - b.score);
+        equilateralTriangles.sort((a, b) => a.relErrorPct - b.relErrorPct);
+        if (options.detectTriangles) {
+          results.push(...allFoundTriangles.slice(0, 50));
+        }
+
+        if (options.detectHexagrams && equilateralTriangles.length >= 2) {
+          const hexLimit = Math.min(equilateralTriangles.length, 80);
+          for (let a = 0; a < hexLimit; a++) {
+            for (let b = a + 1; b < hexLimit; b++) {
+              const t1 = equilateralTriangles[a];
+              const t2 = equilateralTriangles[b];
+
+              const ids1 = new Set(t1.points.map(p => p.id));
+              if (t2.points.some(p => ids1.has(p.id))) continue;
+
+              const sizeDiff = Math.abs(t1.avgSideKm - t2.avgSideKm) / Math.max(t1.avgSideKm, t2.avgSideKm);
+              if (sizeDiff > 0.10) continue;
+
+              const centerDist = Math.hypot(t1.centroid.x - t2.centroid.x, t1.centroid.y - t2.centroid.y);
+              if (centerDist <= tolDist * 2.5) {
+                const hexPts = [...t1.points, ...t2.points];
+                results.push({
+                  id: `hex-${t1.id}-${t2.id}`,
+                  type: 'hexagram',
+                  triangles: [t1, t2],
+                  points: hexPts,
+                  avgSideKm: (t1.avgSideKm + t2.avgSideKm) / 2,
+                  centerOffsetM: centerDist,
+                  maxDeviationM: centerDist,
+                  centroid: t1.centroid,
+                  thematic: analyzePatternThematicMatch(hexPts),
+                  score: (centerDist / (tolDist * 2.5)) + sizeDiff
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // C. ORTOGONÁLNÍ KŘÍŽE (90°)
+      if (options.detectCrosses && n >= 4) {
+        const segments = [];
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const d = distMatrix[i][j];
+            if (d >= minSpanM && d <= maxSpanM) {
+              const angle = Math.atan2(projected[j].y - projected[i].y, projected[j].x - projected[i].x) * RAD2DEG;
+              segments.push({ p1: projected[i], p2: projected[j], len: d, angle });
+            }
+          }
+        }
+
+        const crosses = [];
+        const maxSeg = Math.min(segments.length, 380);
+        for (let a = 0; a < maxSeg; a++) {
+          for (let b = a + 1; b < maxSeg; b++) {
+            const s1 = segments[a];
+            const s2 = segments[b];
+
+            if (s1.p1.id === s2.p1.id || s1.p1.id === s2.p2.id || s1.p2.id === s2.p1.id || s1.p2.id === s2.p2.id) {
+              continue;
+            }
+
+            const ratio = Math.max(s1.len, s2.len) / Math.min(s1.len, s2.len);
+            if (ratio > 2.2) continue;
+
+            let diffAngle = Math.abs(s1.angle - s2.angle) % 180;
+            const orthoErr = Math.abs(90 - diffAngle);
+            if (orthoErr > options.tolAngle) continue;
+
+            const inter = segmentIntersection(s1.p1, s1.p2, s2.p1, s2.p2);
+            if (inter) {
+              const interLatLon = unprojectFromLocalMeters(inter.x, inter.y, refLat, refLon);
+              const crossPts = [s1.p1, s1.p2, s2.p1, s2.p2];
+              crosses.push({
+                id: `cross-${s1.p1.id}-${s1.p2.id}-${s2.p1.id}-${s2.p2.id}`,
+                type: 'cross',
+                seg1: [s1.p1, s1.p2],
+                seg2: [s2.p1, s2.p2],
+                points: crossPts,
+                angleDeg: 90 - (90 - diffAngle),
+                orthoErrorDeg: orthoErr,
+                lengthsKm: [s1.len / 1000, s2.len / 1000],
+                intersection: { lat: interLatLon[0], lon: interLatLon[1] },
+                maxDeviationM: orthoErr * 100,
+                thematic: analyzePatternThematicMatch(crossPts),
+                score: orthoErr / options.tolAngle
+              });
+            }
+          }
+        }
+
+        crosses.sort((a, b) => a.orthoErrorDeg - b.orthoErrorDeg);
+        results.push(...crosses.slice(0, 40));
+      }
+
+      // D. KRUŽNICE / VĚNCE
+      if (options.detectCircles && n >= 4) {
+        const circleCandidates = [];
+        const limitN = Math.min(n, 50);
+
+        for (let i = 0; i < limitN - 2; i++) {
+          for (let j = i + 1; j < limitN - 1; j++) {
+            if (distMatrix[i][j] > maxSpanM) continue;
+            for (let k = j + 1; k < limitN; k++) {
+              const cc = circumcircle(projected[i], projected[j], projected[k]);
+              if (!cc) continue;
+              if (cc.r < minSpanM * 0.4 || cc.r > maxSpanM * 0.65) continue;
+
+              const onCircle = [projected[i], projected[j], projected[k]];
+              let maxRadialErr = 0;
+
+              for (let m = 0; m < n; m++) {
+                if (m === i || m === j || m === k) continue;
+                const distToCenter = Math.hypot(projected[m].x - cc.cx, projected[m].y - cc.cy);
+                const err = Math.abs(distToCenter - cc.r);
+                if (err <= tolDist) {
+                  onCircle.push(projected[m]);
+                  if (err > maxRadialErr) maxRadialErr = err;
+                }
+              }
+
+              if (onCircle.length >= 4) {
+                onCircle.sort((a, b) => Math.atan2(a.y - cc.cy, a.x - cc.cx) - Math.atan2(b.y - cc.cy, b.x - cc.cx));
+                const centerLatLon = unprojectFromLocalMeters(cc.cx, cc.cy, refLat, refLon);
+                const sortedIds = [...onCircle].map(p => p.id).sort().join('-');
+
+                circleCandidates.push({
+                  id: `circle-${sortedIds}`,
+                  type: 'circle',
+                  points: onCircle,
+                  count: onCircle.length,
+                  radiusKm: cc.r / 1000,
+                  maxDeviationM: maxRadialErr,
+                  center: { lat: centerLatLon[0], lon: centerLatLon[1] },
+                  thematic: analyzePatternThematicMatch(onCircle),
+                  score: (maxRadialErr / tolDist) / (onCircle.length - 2)
+                });
+              }
+            }
+          }
+        }
+
+        const uniqueCircles = new Map();
+        for (const c of circleCandidates) {
+          if (!uniqueCircles.has(c.id) || uniqueCircles.get(c.id).maxDeviationM > c.maxDeviationM) {
+            uniqueCircles.set(c.id, c);
+          }
+        }
+        results.push(...Array.from(uniqueCircles.values())
+          .sort((a, b) => b.count - a.count || a.maxDeviationM - b.maxDeviationM)
+          .slice(0, 30));
+      }
+
+      return results;
+    }
+
+    // ----------------------------------------------------------------------------
+    // 7. VYKRESLOVÁNÍ BODŮ A GEOMETRICKÝCH OBRAZCŮ VČETNĚ PROTAŽENÝCH LINIÍ
+    // ----------------------------------------------------------------------------
+    function getMarkerIcon(style, isHighlighted = false) {
+      const color = STYLE_COLORS[style] || STYLE_COLORS['ostatní'];
+      const size = isHighlighted ? 18 : 13;
+      return L.divIcon({
+        className: 'custom-sacral-marker',
+        html: `
+          <div style="position:relative; width:${size}px; height:${size}px; display:flex; align-items:center; justify-content:center;">
+            ${isHighlighted ? `<div class="marker-pulse" style="position:absolute; inset:-4px; border-radius:50%; border:2px solid ${color};"></div>` : ''}
+            <div style="width:${size}px; height:${size}px; background:${color}; border:2px solid #090d16; border-radius:50%; box-shadow: 0 0 8px ${color}99;"></div>
+          </div>
+        `,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2]
+      });
+    }
+
+    function renderPointsOnMap() {
+      markersLayer.clearLayers();
+
+      const highlightedIds = new Set();
+      if (state.activePatternId) {
+        const pat = state.patterns.find(p => p.id === state.activePatternId);
+        if (pat) pat.points.forEach(p => highlightedIds.add(p.id));
+      }
+
+      state.filteredPoints.forEach(pt => {
+        const isHi = highlightedIds.has(pt.id);
+        const marker = L.marker([pt.lat, pt.lon], {
+          icon: getMarkerIcon(pt.style, isHi),
+          zIndexOffset: isHi ? 1000 : 100
+        });
+
+        const memberPatterns = state.patterns.filter(pat => pat.points.some(p => p.id === pt.id));
+        const patternsListHtml = memberPatterns.length
+          ? `<div class="mt-2 pt-1.5 border-t border-slate-700">
+              <div class="text-[10px] uppercase tracking-wider text-amber-400 font-semibold mb-1">Součást ${memberPatterns.length} vzorců:</div>
+              <div class="flex flex-wrap gap-1">
+                ${memberPatterns.slice(0, 6).map(mp => `
+                  <button onclick="selectPattern('${mp.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600">
+                    ${PATTERN_LABELS[mp.type].split(' ')[0]}
+                  </button>
+                `).join('')}
+              </div>
+            </div>`
+          : '';
+
+        const popupHtml = `
+          <div class="p-1 min-w-[235px] max-w-[280px] font-sans">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded" style="background:${STYLE_COLORS[pt.style]}25; color:${STYLE_COLORS[pt.style]}; border:1px solid ${STYLE_COLORS[pt.style]}50;">
+                ${pt.style}
+              </span>
+              <span class="text-xs font-mono text-amber-300 font-semibold">${pt.year ? 'r. ' + pt.year : 'do r. 1800'}</span>
+            </div>
+            <h4 class="font-bold text-sm text-white leading-snug">${pt.name}</h4>
+            <div class="text-[11px] text-slate-300 mt-0.5">${pt.municipality || ''}</div>
+            
+            <div class="mt-2 space-y-1 text-[11px] bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+              <div><span class="text-slate-400">Zasvěcení:</span> <strong class="text-amber-300">${pt.dedication || 'Neurčeno'}</strong></div>
+              <div><span class="text-slate-400">Afiliace:</span> <strong class="text-cyan-300">${pt.affiliation || 'Diecézní'}</strong></div>
+              <div class="text-[10px] font-mono text-slate-400 pt-0.5">${pt.lat.toFixed(5)}° N, ${pt.lon.toFixed(5)}° E</div>
+            </div>
+
+            ${pt.note ? `<p class="text-[11px] text-slate-300 mt-1.5 leading-relaxed">${pt.note}</p>` : ''}
+            ${patternsListHtml}
+            
+            <div class="mt-2 pt-1.5 border-t border-slate-700 flex justify-between text-[11px]">
+              <button onclick="addPointToMeasure('${pt.id}')" class="text-cyan-400 hover:underline">+ Do měření</button>
+              <button onclick="deletePointById('${pt.id}')" class="text-rose-400 hover:underline">Odstranit</button>
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupHtml);
+        marker.bindTooltip(`${pt.name} (${pt.year || '?'})`, { direction: 'top', offset: [0, -8], className: 'text-xs font-medium' });
+
+        marker.on('click', () => {
+          if (state.measureMode) {
+            handleMeasureClick(pt.lat, pt.lon, pt.name);
+          }
+        });
+
+        markersLayer.addLayer(marker);
+      });
+    }
+
+    function drawSinglePattern(pat, isPrimary = true) {
+      const color = PATTERN_COLORS[pat.type] || '#f59e0b';
+      const weight = isPrimary ? 3.5 : 1.5;
+      const opacity = isPrimary ? 0.95 : 0.35;
+
+      const buildPatternPopup = (extraInfoHtml = '') => `
+        <div class="p-1 min-w-[235px] max-w-[285px] font-sans text-xs">
+          <div class="font-bold uppercase text-[11px] mb-1" style="color:${color}">${PATTERN_LABELS[pat.type]}</div>
+          ${extraInfoHtml}
+          <div class="space-y-1 text-slate-200 mt-1.5">
+            ${pat.points.map(p => `
+              <div class="border-b border-slate-800 pb-1">
+                <div class="font-semibold text-white">${p.name} <span class="font-mono text-amber-400">(${p.year || '?'})</span></div>
+                <div class="text-[10px] text-slate-400">${p.dedication || ''} • ${p.affiliation || ''}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      if (pat.type === 'line') {
+        const latlngs = pat.points.map(p => [p.lat, p.lon]);
+        const extKm = state.params.lineExtensionKm || 0;
+        const totalExtendedKm = pat.lengthKm + 2 * extKm;
+        const lineInfoHtml = `
+          <div class="bg-slate-950/80 p-1.5 rounded border border-slate-800 font-mono text-[10px] text-slate-300 space-y-0.5">
+            <div>Azimut osy: <strong class="text-amber-300">${pat.azimuth.toFixed(2)}°</strong></div>
+            <div>Jádro: <strong>${pat.lengthKm.toFixed(2)} km</strong> • Odchylka: <strong>${pat.maxDeviationM.toFixed(0)} m</strong></div>
+            ${extKm > 0 ? `<div class="text-cyan-300">Protaženo: +${extKm} km na každou stranu (celkem <strong>${totalExtendedKm.toFixed(1)} km</strong>)</div>` : ''}
+          </div>
+        `;
+
+        // 1. Geodetické protažení na obě strany (přerušovaně do krajiny)
+        if (extKm > 0 && pat.points.length >= 2) {
+          const pStart = pat.points[0];
+          const pEnd = pat.points[pat.points.length - 1];
+          const azForward = calculateAzimuth(pStart.lat, pStart.lon, pEnd.lat, pEnd.lon);
+          const azBackward = calculateAzimuth(pEnd.lat, pEnd.lon, pStart.lat, pStart.lon);
+
+          const farStart = destinationPoint(pStart.lat, pStart.lon, azBackward, extKm * 1000);
+          const farEnd = destinationPoint(pEnd.lat, pEnd.lon, azForward, extKm * 1000);
+
+          const extOptions = {
+            color,
+            weight: isPrimary ? 2.2 : 1.1,
+            opacity: isPrimary ? 0.78 : 0.25,
+            dashArray: '8, 7'
+          };
+
+          L.polyline([farStart, [pStart.lat, pStart.lon]], extOptions)
+            .bindPopup(buildPatternPopup(lineInfoHtml))
+            .addTo(patternsLayer);
+
+          L.polyline([[pEnd.lat, pEnd.lon], farEnd], extOptions)
+            .bindPopup(buildPatternPopup(lineInfoHtml))
+            .addTo(patternsLayer);
+
+          if (isPrimary) {
+            L.circleMarker(farStart, {
+              radius: 3.5, color, fillColor: '#090d16', fillOpacity: 1, weight: 1.5
+            }).bindTooltip(`Konec protažení (${extKm} km od ${pStart.name})`).addTo(patternsLayer);
+
+            L.circleMarker(farEnd, {
+              radius: 3.5, color, fillColor: '#090d16', fillOpacity: 1, weight: 1.5
+            }).bindTooltip(`Konec protažení (${extKm} km od ${pEnd.name})`).addTo(patternsLayer);
+          }
+        }
+
+        // 2. Vlastní jádro přímky mezi krajními kostely (plnou čarou)
+        L.polyline(latlngs, {
+          color,
+          weight: isPrimary ? 4 : 1.6,
+          opacity: isPrimary ? 0.98 : 0.4
+        }).bindPopup(buildPatternPopup(lineInfoHtml)).addTo(patternsLayer);
+      }
+      else if (pat.type === 'triangle') {
+        const latlngs = pat.points.map(p => [p.lat, p.lon]);
+        L.polygon(latlngs, {
+          color, weight, opacity, fillColor: color, fillOpacity: isPrimary ? 0.14 : 0.03
+        }).bindPopup(buildPatternPopup()).addTo(patternsLayer);
+
+        if (isPrimary && pat.centroid) {
+          L.circleMarker([pat.centroid.lat, pat.centroid.lon], {
+            radius: 4, color: '#fff', fillColor: color, fillOpacity: 1, weight: 1.5
+          }).bindTooltip('Těžiště trojúhelníku').addTo(patternsLayer);
+        }
+      }
+      else if (pat.type === 'hexagram') {
+        pat.triangles.forEach((tri, idx) => {
+          const latlngs = tri.points.map(p => [p.lat, p.lon]);
+          L.polygon(latlngs, {
+            color: idx === 0 ? '#a855f7' : '#ec4899',
+            weight, opacity, fillColor: color, fillOpacity: isPrimary ? 0.12 : 0.02
+          }).bindPopup(buildPatternPopup()).addTo(patternsLayer);
+        });
+        if (isPrimary && pat.centroid) {
+          L.circleMarker([pat.centroid.lat, pat.centroid.lon], {
+            radius: 5, color: '#fff', fillColor: '#a855f7', fillOpacity: 1, weight: 2
+          }).bindTooltip('Společný střed hexagramu').addTo(patternsLayer);
+        }
+      }
+      else if (pat.type === 'cross') {
+        L.polyline(pat.seg1.map(p => [p.lat, p.lon]), { color, weight, opacity }).bindPopup(buildPatternPopup()).addTo(patternsLayer);
+        L.polyline(pat.seg2.map(p => [p.lat, p.lon]), { color, weight, opacity }).bindPopup(buildPatternPopup()).addTo(patternsLayer);
+        if (isPrimary && pat.intersection) {
+          L.circleMarker([pat.intersection.lat, pat.intersection.lon], {
+            radius: 5, color: '#fff', fillColor: color, fillOpacity: 1, weight: 2
+          }).bindTooltip(`Průsečík kříže (${pat.angleDeg.toFixed(2)}°)`).addTo(patternsLayer);
+        }
+      }
+      else if (pat.type === 'circle') {
+        L.circle([pat.center.lat, pat.center.lon], {
+          radius: pat.radiusKm * 1000,
+          color, weight, opacity, fillColor: color, fillOpacity: isPrimary ? 0.08 : 0.01, dashArray: '8, 6'
+        }).bindPopup(buildPatternPopup()).addTo(patternsLayer);
+
+        if (isPrimary) {
+          L.circleMarker([pat.center.lat, pat.center.lon], {
+            radius: 4, color: '#fff', fillColor: color, fillOpacity: 1, weight: 1.5
+          }).bindTooltip(`Střed kružnice (R = ${pat.radiusKm.toFixed(2)} km)`).addTo(patternsLayer);
+
+          pat.points.forEach(pt => {
+            L.polyline([[pat.center.lat, pat.center.lon], [pt.lat, pt.lon]], {
+              color, weight: 1, opacity: 0.45, dashArray: '3, 5'
+            }).addTo(patternsLayer);
+          });
+        }
+      }
+    }
+
+    function renderPatternsOnMap() {
+      patternsLayer.clearLayers();
+
+      if (state.showAllPatterns) {
+        state.patterns.forEach(pat => {
+          const isPrimary = pat.id === state.activePatternId;
+          drawSinglePattern(pat, isPrimary);
+        });
+      } else if (state.activePatternId) {
+        const pat = state.patterns.find(p => p.id === state.activePatternId);
+        if (pat) drawSinglePattern(pat, true);
+      }
+
+      renderPointsOnMap();
+    }
+
+    // ----------------------------------------------------------------------------
+    // 8. DYNAMICKÉ PILULKY PRO AFILIACI A ZASVĚCENÍ + FILTROVÁNÍ DAT
+    // ----------------------------------------------------------------------------
+    function renderFacetPills() {
+      const affCounts = new Map();
+      state.allPoints.forEach(p => {
+        const key = p.affiliation || 'Diecézní';
+        affCounts.set(key, (affCounts.get(key) || 0) + 1);
+      });
+
+      const sortedAff = Array.from(affCounts.entries()).sort((a, b) => b[1] - a[1]);
+      const affContainer = document.getElementById('affiliationPillsContainer');
+      affContainer.innerHTML = sortedAff.map(([aff, cnt]) => {
+        const isSelected = state.filters.selectedAffiliations.has(aff);
+        const cls = isSelected
+          ? 'bg-cyan-500 text-gis-950 font-bold border-cyan-400'
+          : 'bg-gis-900 text-slate-300 border-gis-700 hover:border-slate-500';
+        return `
+          <button onclick="toggleAffiliationFilter('${aff.replace(/'/g, "\\'")}')" class="px-2 py-1 rounded-lg border text-[11px] transition flex items-center gap-1 ${cls}">
+            <span>${aff}</span>
+            <span class="font-mono text-[10px] opacity-80">(${cnt})</span>
+          </button>
+        `;
+      }).join('');
+
+      const dedCounts = new Map();
+      state.allPoints.forEach(p => {
+        const key = p.dedication || 'Neurčeno';
+        dedCounts.set(key, (dedCounts.get(key) || 0) + 1);
+      });
+
+      const dedSearch = state.filters.dedicationSearch.trim().toLowerCase();
+      const sortedDed = Array.from(dedCounts.entries())
+        .filter(([ded]) => !dedSearch || ded.toLowerCase().includes(dedSearch))
+        .sort((a, b) => b[1] - a[1]);
+
+      const dedContainer = document.getElementById('dedicationPillsContainer');
+      dedContainer.innerHTML = sortedDed.map(([ded, cnt]) => {
+        const isSelected = state.filters.selectedDedications.has(ded);
+        const cls = isSelected
+          ? 'bg-amber-500 text-gis-950 font-bold border-amber-400'
+          : 'bg-gis-900 text-slate-300 border-gis-700 hover:border-slate-500';
+        return `
+          <button onclick="toggleDedicationFilter('${ded.replace(/'/g, "\\'")}')" class="px-2 py-1 rounded-lg border text-[11px] transition flex items-center gap-1 ${cls}">
+            <span>${ded}</span>
+            <span class="font-mono text-[10px] opacity-80">(${cnt})</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    window.toggleAffiliationFilter = function(aff) {
+      if (state.filters.selectedAffiliations.has(aff)) {
+        state.filters.selectedAffiliations.delete(aff);
+      } else {
+        state.filters.selectedAffiliations.add(aff);
+      }
+      renderFacetPills();
+      applyFilters();
+    };
+
+    window.toggleDedicationFilter = function(ded) {
+      if (state.filters.selectedDedications.has(ded)) {
+        state.filters.selectedDedications.delete(ded);
+      } else {
+        state.filters.selectedDedications.add(ded);
+      }
+      renderFacetPills();
+      applyFilters();
+    };
+
+    function applyFilters() {
+      const { minYear, maxYear, styles, selectedAffiliations, selectedDedications, search } = state.filters;
+      const q = search.trim().toLowerCase();
+
+      state.filteredPoints = state.allPoints.filter(p => {
+        const y = p.year || 1350;
+        const yearOk = y >= minYear && y <= maxYear;
+        const styleOk = styles.has(p.style || 'ostatní');
+        const affOk = selectedAffiliations.size === 0 || selectedAffiliations.has(p.affiliation || 'Diecézní');
+        const dedOk = selectedDedications.size === 0 || selectedDedications.has(p.dedication || 'Neurčeno');
+        const nameOk = !q || p.name.toLowerCase().includes(q) || (p.municipality || '').toLowerCase().includes(q);
+        return yearOk && styleOk && affOk && dedOk && nameOk;
+      });
+
+      document.getElementById('activeCountBadge').textContent = `${state.filteredPoints.length} / ${state.allPoints.length} staveb`;
+      renderFilteredPointsList();
+      renderPointsOnMap();
+    }
+
+    function renderFilteredPointsList() {
+      const container = document.getElementById('pointsListContainer');
+      if (!state.filteredPoints.length) {
+        container.innerHTML = `<div class="py-4 text-center text-slate-500">Žádné stavby neodpovídají zvolenému filtru.</div>`;
+        return;
+      }
+
+      container.innerHTML = state.filteredPoints.map(pt => `
+        <div class="py-2 px-1.5 flex items-center justify-between hover:bg-gis-800/70 rounded cursor-pointer transition gap-2" onclick="focusPoint('${pt.id}')">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full shrink-0" style="background:${STYLE_COLORS[pt.style] || STYLE_COLORS['ostatní']}"></span>
+              <span class="truncate text-slate-200 font-medium">${pt.name}</span>
+            </div>
+            <div class="text-[10px] text-slate-400 truncate pl-3.5">
+              ${pt.municipality ? pt.municipality + ' • ' : ''}${pt.affiliation || ''}
+            </div>
+          </div>
+          <span class="text-[11px] font-mono text-amber-400/90 shrink-0">${pt.year || '?'}</span>
+        </div>
+      `).join('');
+    }
+
+    window.focusPoint = function(id) {
+      const pt = state.filteredPoints.find(p => p.id === id);
+      if (!pt) return;
+      map.flyTo([pt.lat, pt.lon], 13, { duration: 0.8 });
+      markersLayer.eachLayer(layer => {
+        const ll = layer.getLatLng();
+        if (Math.abs(ll.lat - pt.lat) < 1e-5 && Math.abs(ll.lng - pt.lon) < 1e-5) {
+          layer.openPopup();
+        }
+      });
+    };
+
+    window.deletePointById = function(id) {
+      state.allPoints = state.allPoints.filter(p => p.id !== id);
+      renderFacetPills();
+      applyFilters();
+      showToast('Stavba byla odstraněna ze seznamu.');
+    };
+
+    // ----------------------------------------------------------------------------
+    // 9. ZOBRAZENÍ VÝSLEDKŮ ANALÝZY
+    // ----------------------------------------------------------------------------
+    function renderResultsList() {
+      const filterType = document.getElementById('resultFilterSelect').value;
+      const onlyThematic = document.getElementById('onlyThematicMatchChk').checked;
+      const container = document.getElementById('resultsListContainer');
+      const badge = document.getElementById('resultsBadge');
+
+      badge.textContent = state.patterns.length;
+      badge.classList.remove('hidden');
+
+      let visible = filterType === 'all'
+        ? state.patterns
+        : state.patterns.filter(p => p.type === filterType);
+
+      if (onlyThematic) {
+        visible = visible.filter(p => p.thematic && p.thematic.hasMatch);
+      }
+
+      document.getElementById('resultsSummaryBar').innerHTML =
+        `Nalezeno celkem <strong class="text-white">${state.patterns.length}</strong> vzorců (zobrazeno ${visible.length}).`;
+
+      if (!visible.length) {
+        container.innerHTML = `
+          <div class="bg-gis-800/40 border border-gis-700/60 rounded-xl p-6 text-center text-xs text-slate-400">
+            Pro zadané filtry nebyly nalezeny žádné vzorce. Zkuste zrušit filtr tematické shody nebo zvýšit toleranci.
+          </div>
+        `;
+        return;
+      }
+
+      const extKm = state.params.lineExtensionKm || 0;
+
+      container.innerHTML = visible.map(pat => {
+        const color = PATTERN_COLORS[pat.type];
+        const isActive = pat.id === state.activePatternId;
+        let metricsHtml = '';
+
+        if (pat.type === 'line') {
+          metricsHtml = `
+            <span>Body: <strong>${pat.count}</strong></span>
+            <span>Jádro: <strong>${pat.lengthKm.toFixed(1)} km</strong></span>
+            ${extKm > 0 ? `<span class="text-cyan-300">+${extKm} km/str.</span>` : ''}
+            <span>Azimut: <strong>${pat.azimuth.toFixed(1)}°</strong></span>
+            <span>Odchylka: <strong class="text-amber-400">${pat.maxDeviationM.toFixed(0)} m</strong></span>
+          `;
+        } else if (pat.type === 'triangle') {
+          metricsHtml = `
+            <span>Typ: <strong>${pat.subType}</strong></span>
+            <span>Strana: <strong>~${pat.avgSideKm.toFixed(1)} km</strong></span>
+            <span>Odchylka: <strong class="text-cyan-400">${pat.relErrorPct.toFixed(2)} %</strong></span>
+          `;
+        } else if (pat.type === 'hexagram') {
+          metricsHtml = `
+            <span>Strana: <strong>~${pat.avgSideKm.toFixed(1)} km</strong></span>
+            <span>Posun středů: <strong class="text-purple-400">${pat.centerOffsetM.toFixed(0)} m</strong></span>
+          `;
+        } else if (pat.type === 'cross') {
+          metricsHtml = `
+            <span>Úhel: <strong class="text-pink-400">${pat.angleDeg.toFixed(2)}°</strong></span>
+            <span>Ramena: <strong>${pat.lengthsKm[0].toFixed(1)} / ${pat.lengthsKm[1].toFixed(1)} km</strong></span>
+          `;
+        } else if (pat.type === 'circle') {
+          metricsHtml = `
+            <span>Body: <strong>${pat.count}</strong></span>
+            <span>Poloměr: <strong>${pat.radiusKm.toFixed(2)} km</strong></span>
+            <span>Odchylka: <strong class="text-emerald-400">${pat.maxDeviationM.toFixed(0)} m</strong></span>
+          `;
+        }
+
+        const thematicBadgesHtml = (pat.thematic && pat.thematic.badges.length)
+          ? `<div class="flex flex-wrap gap-1 pt-0.5">
+              ${pat.thematic.badges.map(b => `
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-${b.color}-500/20 text-${b.color}-300 border border-${b.color}-500/40 font-medium">
+                  ★ ${b.label}
+                </span>
+              `).join('')}
+            </div>`
+          : '';
+
+        const pointsDetailHtml = pat.points.map(p =>
+          `<span class="text-slate-200">${p.name}</span> <span class="text-slate-500">(${p.year || '?'}, ${p.affiliation || ''})</span>`
+        ).join(' • ');
+
+        return `
+          <div onclick="selectPattern('${pat.id}')" class="p-3 rounded-xl bg-gis-800/70 border border-gis-700/80 hover:border-slate-500 cursor-pointer transition space-y-1.5 ${isActive ? 'pattern-card-active' : ''}">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" style="background:${color}22; color:${color}; border:1px solid ${color}44;">
+                ${PATTERN_LABELS[pat.type]}
+              </span>
+              <span class="text-[10px] font-mono text-slate-400">#${pat.id.slice(0, 10)}</span>
+            </div>
+            ${thematicBadgesHtml}
+            <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-mono text-slate-300">
+              ${metricsHtml}
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              ${pointsDetailHtml}
+            </p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.selectPattern = function(patternId) {
+      state.activePatternId = patternId;
+      renderResultsList();
+      renderPatternsOnMap();
+
+      const pat = state.patterns.find(p => p.id === patternId);
+      if (pat && pat.points.length) {
+        const bounds = L.latLngBounds(pat.points.map(p => [p.lat, p.lon]));
+        const maxZ = (pat.type === 'line' && (state.params.lineExtensionKm || 0) > 15) ? 10 : 14;
+        map.fitBounds(bounds.pad(0.35), { maxZoom: maxZ, duration: 0.7 });
+      }
+    };
+
+    // ----------------------------------------------------------------------------
+    // 10. STATISTICKÉ OVĚŘENÍ – MONTE CARLO SIMULACE
+    // ----------------------------------------------------------------------------
+    async function runMonteCarloSimulation() {
+      const pts = state.filteredPoints;
+      if (pts.length < 4) {
+        showToast('Pro Monte Carlo simulaci jsou potřeba alespoň 4 stavby.', 'error');
+        return;
+      }
+
+      const iterations = parseInt(document.getElementById('mcIterSlider').value, 10);
+      const btn = document.getElementById('runMonteCarloBtn');
+      const spinner = document.getElementById('mcSpinner');
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+      setStatus(`Simuluji ${iterations} náhodných map...`);
+
+      await new Promise(r => setTimeout(r, 40));
+
+      const realPatterns = runGeometricDetection(pts, state.params);
+      const countByType = (arr) => ({
+        line: arr.filter(p => p.type === 'line').length,
+        cross: arr.filter(p => p.type === 'cross').length,
+        triangle: arr.filter(p => p.type === 'triangle').length,
+        hexagram: arr.filter(p => p.type === 'hexagram').length,
+        circle: arr.filter(p => p.type === 'circle').length
+      });
+      const realCounts = countByType(realPatterns);
+
+      let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+      pts.forEach(p => {
+        if (p.lat < minLat) minLat = p.lat;
+        if (p.lat > maxLat) maxLat = p.lat;
+        if (p.lon < minLon) minLon = p.lon;
+        if (p.lon > maxLon) maxLon = p.lon;
+      });
+
+      const sums = { line: 0, cross: 0, triangle: 0, hexagram: 0, circle: 0 };
+      const sumSq = { line: 0, cross: 0, triangle: 0, hexagram: 0, circle: 0 };
+      const exceedCounts = { line: 0, cross: 0, triangle: 0, hexagram: 0, circle: 0 };
+
+      for (let iter = 0; iter < iterations; iter++) {
+        const randomPts = [];
+        for (let i = 0; i < pts.length; i++) {
+          randomPts.push({
+            id: `rnd-${i}`,
+            name: `Rnd ${i}`,
+            lat: minLat + Math.random() * (maxLat - minLat),
+            lon: minLon + Math.random() * (maxLon - minLon)
+          });
+        }
+
+        const simPatterns = runGeometricDetection(randomPts, state.params);
+        const simCounts = countByType(simPatterns);
+
+        for (const key of Object.keys(sums)) {
+          sums[key] += simCounts[key];
+          sumSq[key] += simCounts[key] * simCounts[key];
+          if (simCounts[key] >= realCounts[key] && realCounts[key] > 0) {
+            exceedCounts[key]++;
+          }
+        }
+      }
+
+      const rows = [
+        { key: 'line', label: 'Přímky (Ley lines)' },
+        { key: 'cross', label: 'Ortogonální kříže' },
+        { key: 'triangle', label: 'Trojúhelníky' },
+        { key: 'hexagram', label: 'Hvězdy (Hexagramy)' },
+        { key: 'circle', label: 'Kružnice / Věnce' }
+      ];
+
+      let html = `
+        <div class="bg-gis-800/60 border border-gis-700 rounded-xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between border-b border-gis-700 pb-2">
+            <span class="text-xs font-bold text-white">Srovnání s náhodným rozložením</span>
+            <span class="text-[11px] font-mono text-slate-400">N = ${iterations}</span>
+          </div>
+          <div class="space-y-2.5">
+      `;
+
+      rows.forEach(r => {
+        const real = realCounts[r.key];
+        const avg = sums[r.key] / iterations;
+        const variance = Math.max(0, (sumSq[r.key] / iterations) - (avg * avg));
+        const stdDev = Math.sqrt(variance);
+        const zScore = stdDev > 1e-6 ? (real - avg) / stdDev : (real > avg ? 3.0 : 0);
+        const pVal = real === 0 ? 1.0 : (exceedCounts[r.key] + 1) / (iterations + 1);
+        const isSignificant = real > 0 && pVal < 0.05;
+
+        const maxBar = Math.max(real, avg, 1);
+        const realPct = Math.min(100, (real / maxBar) * 100);
+        const avgPct = Math.min(100, (avg / maxBar) * 100);
+
+        html += `
+          <div class="bg-gis-900/90 p-2.5 rounded-lg border ${isSignificant ? 'border-emerald-500/50' : 'border-gis-700/60'} space-y-1.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-200">${r.label}</span>
+              <span class="font-mono text-[11px] px-1.5 py-0.5 rounded ${isSignificant ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'}">
+                Z = ${zScore.toFixed(2)} | p = ${pVal.toFixed(3)} ${isSignificant ? '★' : ''}
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
+              <div>Reálná data: <strong class="text-amber-400">${real}</strong></div>
+              <div>Náhoda: <strong class="text-cyan-400">${avg.toFixed(2)} ± ${stdDev.toFixed(2)}</strong></div>
+            </div>
+            <div class="space-y-1 pt-1">
+              <div class="w-full bg-gis-950 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-amber-500 h-full" style="width:${realPct}%"></div>
+              </div>
+              <div class="w-full bg-gis-950 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-cyan-500 h-full" style="width:${avgPct}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed pt-1">
+            <strong>Verdikt:</strong> Hodnota <em>p &lt; 0.05</em> (★) znamená statisticky významnou odchylku od náhody. Pokud je <em>p &ge; 0.05</em>, je počet obrazců srovnatelný s náhodným rozmístěním sídel v krajině.
+          </p>
+        </div>
+      `;
+
+      const mcContainer = document.getElementById('mcResultsContainer');
+      mcContainer.innerHTML = html;
+      mcContainer.classList.remove('hidden');
+
+      btn.disabled = false;
+      spinner.classList.add('hidden');
+      setStatus('Monte Carlo simulace hotova');
+    }
+
+    // ----------------------------------------------------------------------------
+    // 11. IMPORT A EXPORT (GEOJSON, CSV, GPX)
+    // ----------------------------------------------------------------------------
+    function downloadTextFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportDatabaseGeoJSON() {
+      const fc = {
+        type: 'FeatureCollection',
+        features: state.allPoints.map(p => ({
+          type: 'Feature',
+          properties: {
+            id: p.id,
+            name: p.name,
+            municipality: p.municipality,
+            year: p.year,
+            style: p.style,
+            affiliation: p.affiliation,
+            dedication: p.dedication,
+            note: p.note
+          },
+          geometry: { type: 'Point', coordinates: [p.lon, p.lat] }
+        }))
+      };
+      downloadTextFile(JSON.stringify(fc, null, 2), 'sacrageo_databaze_do_1800.geojson', 'application/geo+json');
+      showToast('Databáze uložena ve formátu GeoJSON.');
+    }
+
+    function exportDatabaseCSV() {
+      const header = 'id;name;municipality;lat;lon;year;style;affiliation;dedication;note\n';
+      const rows = state.allPoints.map(p => [
+        p.id,
+        `"${(p.name || '').replace(/"/g, '""')}"`,
+        `"${(p.municipality || '').replace(/"/g, '""')}"`,
+        p.lat,
+        p.lon,
+        p.year || '',
+        p.style || '',
+        `"${(p.affiliation || '').replace(/"/g, '""')}"`,
+        `"${(p.dedication || '').replace(/"/g, '""')}"`,
+        `"${(p.note || '').replace(/"/g, '""')}"`
+      ].join(';')).join('\n');
+      downloadTextFile('\uFEFF' + header + rows, 'sacrageo_databaze_do_1800.csv', 'text/csv;charset=utf-8;');
+      showToast('Databáze uložena ve formátu CSV.');
+    }
+
+    function exportPatternsGeoJSON() {
+      if (!state.patterns.length) {
+        showToast('Nejsou žádné vzorce k exportu.', 'error');
+        return;
+      }
+      const extKm = state.params.lineExtensionKm || 0;
+      const features = [];
+      state.patterns.forEach(pat => {
+        if (pat.type === 'line') {
+          let coords = pat.points.map(p => [p.lon, p.lat]);
+          if (extKm > 0 && pat.points.length >= 2) {
+            const pStart = pat.points[0];
+            const pEnd = pat.points[pat.points.length - 1];
+            const azF = calculateAzimuth(pStart.lat, pStart.lon, pEnd.lat, pEnd.lon);
+            const azB = calculateAzimuth(pEnd.lat, pEnd.lon, pStart.lat, pStart.lon);
+            const farS = destinationPoint(pStart.lat, pStart.lon, azB, extKm * 1000);
+            const farE = destinationPoint(pEnd.lat, pEnd.lon, azF, extKm * 1000);
+            coords = [[farS[1], farS[0]], ...coords, [farE[1], farE[0]]];
+          }
+          features.push({
+            type: 'Feature',
+            properties: { id: pat.id, type: pat.type, coreLengthKm: pat.lengthKm, extensionEachSideKm: extKm, azimuth: pat.azimuth, maxDeviationM: pat.maxDeviationM },
+            geometry: { type: 'LineString', coordinates: coords }
+          });
+        } else if (pat.type === 'triangle') {
+          const coords = pat.points.map(p => [p.lon, p.lat]);
+          coords.push(coords[0]);
+          features.push({
+            type: 'Feature',
+            properties: { id: pat.id, type: pat.type, subType: pat.subType, avgSideKm: pat.avgSideKm, relErrorPct: pat.relErrorPct },
+            geometry: { type: 'Polygon', coordinates: [coords] }
+          });
+        } else if (pat.type === 'cross') {
+          features.push({
+            type: 'Feature',
+            properties: { id: pat.id, type: pat.type, angleDeg: pat.angleDeg },
+            geometry: {
+              type: 'MultiLineString',
+              coordinates: [pat.seg1.map(p => [p.lon, p.lat]), pat.seg2.map(p => [p.lon, p.lat])]
+            }
+          });
+        }
+      });
+      downloadTextFile(JSON.stringify({ type: 'FeatureCollection', features }, null, 2), 'sacrageo_vzorce.geojson', 'application/geo+json');
+      showToast('Vzorce (včetně protažených linií) exportovány do GeoJSON.');
+    }
+
+    function exportPatternsGPX() {
+      if (!state.patterns.length) {
+        showToast('Nejsou žádné vzorce k exportu.', 'error');
+        return;
+      }
+      const extKm = state.params.lineExtensionKm || 0;
+      let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="SacraGeo GIS" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+      state.filteredPoints.forEach(p => {
+        gpx += `  <wpt lat="${p.lat}" lon="${p.lon}"><name>${p.name.replace(/[<>&]/g, '')}</name><desc>${p.year || '?'} | ${p.style} | ${p.affiliation || ''} | ${p.dedication || ''}</desc></wpt>\n`;
+      });
+      state.patterns.forEach(pat => {
+        gpx += `  <trk><name>${PATTERN_LABELS[pat.type]} (${pat.id})</name><trkseg>\n`;
+        if (pat.type === 'line' && extKm > 0 && pat.points.length >= 2) {
+          const pStart = pat.points[0];
+          const pEnd = pat.points[pat.points.length - 1];
+          const azB = calculateAzimuth(pEnd.lat, pEnd.lon, pStart.lat, pStart.lon);
+          const farS = destinationPoint(pStart.lat, pStart.lon, azB, extKm * 1000);
+          gpx += `    <trkpt lat="${farS[0]}" lon="${farS[1]}"></trkpt>\n`;
+        }
+        pat.points.forEach(p => {
+          gpx += `    <trkpt lat="${p.lat}" lon="${p.lon}"></trkpt>\n`;
+        });
+        if (pat.type === 'line' && extKm > 0 && pat.points.length >= 2) {
+          const pStart = pat.points[0];
+          const pEnd = pat.points[pat.points.length - 1];
+          const azF = calculateAzimuth(pStart.lat, pStart.lon, pEnd.lat, pEnd.lon);
+          const farE = destinationPoint(pEnd.lat, pEnd.lon, azF, extKm * 1000);
+          gpx += `    <trkpt lat="${farE[0]}" lon="${farE[1]}"></trkpt>\n`;
+        }
+        if (pat.type === 'triangle' && pat.points.length) {
+          gpx += `    <trkpt lat="${pat.points[0].lat}" lon="${pat.points[0].lon}"></trkpt>\n`;
+        }
+        gpx += `  </trkseg></trk>\n`;
+      });
+      gpx += `</gpx>`;
+      downloadTextFile(gpx, 'sacrageo_vzorce.gpx', 'application/gpx+xml');
+      showToast('Vzorce a body exportovány do GPX.');
+    }
+
+    function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        try {
+          let imported = [];
+          if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+            const geo = JSON.parse(text);
+            (geo.features || []).forEach((f, idx) => {
+              if (f.geometry && f.geometry.type === 'Point') {
+                const [lon, lat] = f.geometry.coordinates;
+                const props = f.properties || {};
+                const name = props.name || props.nazev || `Stavba ${idx + 1}`;
+                imported.push({
+                  id: `imp-${idx}-${Date.now()}`,
+                  name,
+                  municipality: props.municipality || props.obec || '',
+                  lat: parseFloat(lat),
+                  lon: parseFloat(lon),
+                  year: Math.min(1800, parseInt(props.year || props.rok || 1350, 10)),
+                  style: props.style || props.sloh || 'gotický',
+                  affiliation: props.affiliation || props.afiliace || detectAffiliationFromName(name),
+                  dedication: props.dedication || props.zasveceni || detectDedicationFromName(name),
+                  note: props.note || 'Importováno z GeoJSON'
+                });
+              }
+            });
+          } else {
+            const lines = text.split(/\r?\n/).filter(l => l.trim());
+            const sep = lines[0].includes(';') ? ';' : ',';
+            const headers = lines[0].replace(/^\uFEFF/, '').split(sep).map(h => h.trim().toLowerCase());
+            for (let i = 1; i < lines.length; i++) {
+              const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+              const row = {};
+              headers.forEach((h, idx) => row[h] = cols[idx]);
+              const lat = parseFloat(row.lat || row.latitude);
+              const lon = parseFloat(row.lon || row.lng || row.longitude);
+              if (!isNaN(lat) && !isNaN(lon)) {
+                const name = row.name || row.nazev || `Bod ${i}`;
+                imported.push({
+                  id: `csv-${i}-${Date.now()}`,
+                  name,
+                  municipality: row.municipality || row.obec || '',
+                  lat,
+                  lon,
+                  year: Math.min(1800, parseInt(row.year || row.rok || 1350, 10)),
+                  style: row.style || row.sloh || 'gotický',
+                  affiliation: row.affiliation || row.afiliace || detectAffiliationFromName(name),
+                  dedication: row.dedication || row.zasveceni || detectDedicationFromName(name),
+                  note: row.note || ''
+                });
+              }
+            }
+          }
+          if (imported.length) {
+            state.allPoints = imported;
+            renderFacetPills();
+            applyFilters();
+            map.fitBounds(L.latLngBounds(imported.map(p => [p.lat, p.lon])).pad(0.2));
+            showToast(`Úspěšně importováno ${imported.length} staveb.`);
+          } else {
+            showToast('Soubor neobsahoval platné souřadnice.', 'error');
+          }
+        } catch (err) {
+          showToast('Chyba při čtení souboru: ' + err.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // ----------------------------------------------------------------------------
+    // 12. RUČNÍ MĚŘENÍ A POMOCNÉ UI FUNKCE
+    // ----------------------------------------------------------------------------
+    function handleMeasureClick(lat, lon, label = 'Bod v mapě') {
+      if (state.measurePoints.length >= 3) state.measurePoints = [];
+      state.measurePoints.push({ lat, lon, label });
+      renderMeasureLayer();
+    }
+
+    window.addPointToMeasure = function(id) {
+      const pt = state.filteredPoints.find(p => p.id === id);
+      if (!pt) return;
+      state.measureMode = true;
+      document.getElementById('measurePanel').classList.remove('hidden');
+      document.getElementById('toggleMeasureBtn').classList.add('border-cyan-500', 'text-cyan-300');
+      handleMeasureClick(pt.lat, pt.lon, pt.name);
+      map.closePopup();
+    };
+
+    function renderMeasureLayer() {
+      measureLayer.clearLayers();
+      const out = document.getElementById('measureOutput');
+      const pts = state.measurePoints;
+
+      if (!pts.length) {
+        out.innerHTML = `<div class="text-slate-500">Vyberte první bod...</div>`;
+        return;
+      }
+
+      pts.forEach((p, idx) => {
+        L.circleMarker([p.lat, p.lon], {
+          radius: 6, color: '#06b6d4', fillColor: '#fff', fillOpacity: 1, weight: 2
+        }).bindTooltip(`${idx + 1}. ${p.label}`, { permanent: true, direction: 'right' }).addTo(measureLayer);
+      });
+
+      if (pts.length >= 2) {
+        L.polyline(pts.map(p => [p.lat, p.lon]), { color: '#06b6d4', weight: 2.5, dashArray: '5, 5' }).addTo(measureLayer);
+      }
+
+      if (pts.length === 1) {
+        out.innerHTML = `<div>1. <span class="text-white">${pts[0].label}</span></div><div class="text-slate-500">Klikněte na druhý bod...</div>`;
+      } else if (pts.length === 2) {
+        const d = haversineDistance(pts[0].lat, pts[0].lon, pts[1].lat, pts[1].lon);
+        const az = calculateAzimuth(pts[0].lat, pts[0].lon, pts[1].lat, pts[1].lon);
+        out.innerHTML = `
+          <div>1→2: <span class="text-white">${pts[0].label}</span> → <span class="text-white">${pts[1].label}</span></div>
+          <div class="text-cyan-400">Vzdálenost: <strong>${(d / 1000).toFixed(3)} km</strong> (${d.toFixed(0)} m)</div>
+          <div class="text-amber-400">Azimut: <strong>${az.toFixed(2)}°</strong></div>
+        `;
+      } else if (pts.length === 3) {
+        const d12 = haversineDistance(pts[0].lat, pts[0].lon, pts[1].lat, pts[1].lon);
+        const d23 = haversineDistance(pts[1].lat, pts[1].lon, pts[2].lat, pts[2].lon);
+        const az21 = calculateAzimuth(pts[1].lat, pts[1].lon, pts[0].lat, pts[0].lon);
+        const az23 = calculateAzimuth(pts[1].lat, pts[1].lon, pts[2].lat, pts[2].lon);
+        let angle = Math.abs(az21 - az23);
+        if (angle > 180) angle = 360 - angle;
+        out.innerHTML = `
+          <div>Vrchol B: <span class="text-white">${pts[1].label}</span></div>
+          <div>Ramena: <strong>${(d12 / 1000).toFixed(2)} km</strong> | <strong>${(d23 / 1000).toFixed(2)} km</strong></div>
+          <div class="text-emerald-400 text-xs pt-0.5">Vnitřní úhel ∠ABC: <strong>${angle.toFixed(2)}°</strong></div>
+        `;
+      }
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      const bg = type === 'error' ? 'bg-rose-600 text-white' : 'bg-gis-800 text-white border border-amber-500/50';
+      el.className = `${bg} px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium transition-opacity duration-300`;
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+      }, 3400);
+    }
+
+    function setStatus(text) {
+      document.getElementById('statusMessage').textContent = text;
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const active = btn.dataset.tab === tabName;
+        btn.classList.toggle('border-amber-500', active);
+        btn.classList.toggle('text-amber-400', active);
+        btn.classList.toggle('bg-gis-800/40', active);
+        btn.classList.toggle('border-transparent', !active);
+        btn.classList.toggle('text-slate-400', !active);
+      });
+      document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.toggle('hidden', el.id !== `tab-${tabName}`);
+      });
+    }
+
+    // ----------------------------------------------------------------------------
+    // 13. PROPOJENÍ UDÁLOSTÍ UI
+    // ----------------------------------------------------------------------------
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    document.getElementById('mobileToggleBtn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('-translate-x-full');
+      setTimeout(() => map.invalidateSize(), 320);
+    });
+    document.getElementById('closeSidebarMobile').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+      setTimeout(() => map.invalidateSize(), 320);
+    });
+
+    // Přepínání podkladových map
+    document.querySelectorAll('.basemap-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.basemap;
+        Object.values(baseLayers).forEach(l => map.removeLayer(l));
+        baseLayers[key].addTo(map);
+        document.querySelectorAll('.basemap-btn').forEach(b => {
+          const isAct = b === btn;
+          b.className = isAct
+            ? 'basemap-btn px-2 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold shadow-sm transition'
+            : 'basemap-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition';
+        });
+      });
+    });
+
+    // Ovládání historických map ČÚZK přes tlačítka v horním panelu
+    document.querySelectorAll('.hist-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.histMode = btn.dataset.hist;
+        document.querySelectorAll('.hist-btn').forEach(b => {
+          const isAct = b === btn;
+          b.className = isAct
+            ? 'hist-btn px-2 py-1 rounded-lg bg-sky-500 text-slate-950 font-bold shadow-sm transition'
+            : 'hist-btn px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600/70 font-medium transition';
+        });
+        syncHistoricalOverlay();
+      });
+    });
+
+    document.getElementById('histOpacitySlider').addEventListener('input', (e) => {
+      const pct = parseInt(e.target.value, 10);
+      state.histOpacity = pct / 100;
+      document.getElementById('histOpacityVal').textContent = `${pct}%`;
+      syncHistoricalOverlay();
+    });
+
+    document.getElementById('zoomToCadastreBtn').addEventListener('click', () => {
+      map.setZoom(15);
+    });
+
+    map.on('mousemove', (e) => {
+      document.getElementById('cursorCoords').textContent = `${e.latlng.lat.toFixed(4)}° N, ${e.latlng.lng.toFixed(4)}° E`;
+    });
+
+    map.on('click', (e) => {
+      if (state.addPointMode) {
+        document.getElementById('newPointLat').value = e.latlng.lat.toFixed(6);
+        document.getElementById('newPointLon').value = e.latlng.lng.toFixed(6);
+        document.getElementById('newPointName').value = '';
+        document.getElementById('addPointModal').classList.remove('hidden');
+        state.addPointMode = false;
+        document.getElementById('addPointBanner').classList.add('hidden');
+      } else if (state.measureMode) {
+        handleMeasureClick(e.latlng.lat, e.latlng.lng, 'Bod v mapě');
+      }
+    });
+
+    // Modály Export a Přidat bod
+    document.getElementById('exportDbMenuBtn').addEventListener('click', () => {
+      document.getElementById('exportModal').classList.remove('hidden');
+    });
+    document.getElementById('closeExportModalBtn').addEventListener('click', () => {
+      document.getElementById('exportModal').classList.add('hidden');
+    });
+    document.getElementById('doExportGeoJsonBtn').addEventListener('click', () => {
+      exportDatabaseGeoJSON();
+      document.getElementById('exportModal').classList.add('hidden');
+    });
+    document.getElementById('doExportCsvBtn').addEventListener('click', () => {
+      exportDatabaseCSV();
+      document.getElementById('exportModal').classList.add('hidden');
+    });
+
+    document.getElementById('toggleAddPointBtn').addEventListener('click', () => {
+      state.addPointMode = true;
+      document.getElementById('addPointBanner').classList.remove('hidden');
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+    });
+    document.getElementById('cancelAddPointBtn').addEventListener('click', () => {
+      state.addPointMode = false;
+      document.getElementById('addPointBanner').classList.add('hidden');
+    });
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+      document.getElementById('addPointModal').classList.add('hidden');
+    });
+    document.getElementById('saveNewPointBtn').addEventListener('click', () => {
+      const name = document.getElementById('newPointName').value.trim() || 'Vlastní sakrální stavba';
+      const municipality = document.getElementById('newPointMunicipality').value.trim();
+      const lat = parseFloat(document.getElementById('newPointLat').value);
+      const lon = parseFloat(document.getElementById('newPointLon').value);
+      const year = Math.min(1800, parseInt(document.getElementById('newPointYear').value, 10) || 1350);
+      const style = document.getElementById('newPointStyle').value;
+      const affiliation = document.getElementById('newPointAffiliation').value.trim() || 'Diecézní';
+      const dedication = document.getElementById('newPointDedication').value.trim() || detectDedicationFromName(name);
+
+      if (isNaN(lat) || isNaN(lon)) {
+        showToast('Neplatné souřadnice.', 'error');
+        return;
+      }
+
+      state.allPoints.push({
+        id: `custom-${Date.now()}`,
+        name,
+        municipality,
+        lat,
+        lon,
+        year,
+        style,
+        affiliation,
+        dedication,
+        note: 'Uživatelsky vložený bod.'
+      });
+      document.getElementById('addPointModal').classList.add('hidden');
+      renderFacetPills();
+      applyFilters();
+      showToast(`Přidána stavba: ${name}`);
+    });
+
+    document.getElementById('loadPresetBtn').addEventListener('click', () => {
+      state.allPoints = JSON.parse(JSON.stringify(PRESET_CHURCHES));
+      state.filters.selectedAffiliations.clear();
+      state.filters.selectedDedications.clear();
+      document.getElementById('enrichWikidataBtn').classList.add('hidden');
+      document.getElementById('osmStatusText').textContent = 'Přibližte na okres/region (zoom ≥ 11) a načtěte další stavby z OSM.';
+      renderFacetPills();
+      applyFilters();
+      state.patterns = runGeometricDetection(state.filteredPoints, state.params);
+      state.activePatternId = state.patterns.length ? state.patterns[0].id : null;
+      renderResultsList();
+      renderPatternsOnMap();
+      map.flyTo([50.06, 14.52], 10);
+      showToast('Obnovena databáze 122 středočeských památek do r. 1800.');
+    });
+
+    // Propojení tlačítek pro import z OpenStreetMap a dodatečné obohacení z Wikidat
+    document.getElementById('fetchOsmBtn').addEventListener('click', fetchChurchesFromOSM);
+
+    document.getElementById('enrichWikidataBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('enrichWikidataBtn');
+      const statusEl = document.getElementById('osmStatusText');
+      const candidates = state.allPoints.filter(p => p.wikidataQid && !p.wikidataEnriched);
+      if (!candidates.length) {
+        btn.classList.add('hidden');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Načítám...';
+      const count = await enrichPointsFromWikidata(candidates);
+      if (document.getElementById('osmPre1800OnlyChk').checked) {
+        state.allPoints = state.allPoints.filter(p => !(p.year && p.year > 1800));
+      }
+      btn.disabled = false;
+      btn.textContent = '✨ Doplnit z Wikidat';
+      btn.classList.add('hidden');
+      renderFacetPills();
+      applyFilters();
+      statusEl.innerHTML = `<span class="text-amber-300">Z Wikidat doplněny podrobnosti u <strong>${count}</strong> OSM staveb.</span>`;
+      showToast(`Z Wikidat obohaceno ${count} staveb.`);
+    });
+
+    // Rychlé prostorové presety
+    document.querySelectorAll('.region-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const reg = btn.dataset.region;
+        if (reg === 'stredni-cechy') {
+          map.flyTo([50.06, 14.52], 10, { duration: 0.8 });
+          state.params.minSpanKm = 1.5;
+          state.params.maxSpanKm = 15;
+        } else if (reg === 'praha-okoli') {
+          map.flyTo([50.08, 14.43], 12, { duration: 0.8 });
+          state.params.minSpanKm = 1.0;
+          state.params.maxSpanKm = 12;
+        } else if (reg === 'karlovsky-kriz') {
+          map.flyTo([50.0706, 14.4235], 15, { duration: 0.8 });
+          state.params.minSpanKm = 0.5;
+          state.params.maxSpanKm = 2.5;
+          state.params.tolDist = 35;
+          document.getElementById('tolDistSlider').value = 35;
+          document.getElementById('tolDistLabel').textContent = '35 m';
+        } else if (reg === 'brandys-boleslav') {
+          map.flyTo([50.185, 14.665], 12, { duration: 0.8 });
+          state.params.minSpanKm = 1.2;
+          state.params.maxSpanKm = 14;
+        } else if (reg === 'kourim-kolin') {
+          map.flyTo([50.02, 15.05], 11, { duration: 0.8 });
+          state.params.minSpanKm = 2.0;
+          state.params.maxSpanKm = 16;
+        } else if (reg === 'posazavi') {
+          map.flyTo([49.87, 14.66], 11, { duration: 0.8 });
+          state.params.minSpanKm = 2.0;
+          state.params.maxSpanKm = 18;
+        } else if (reg === 'karlstejn-tetin') {
+          map.flyTo([49.95, 14.17], 12, { duration: 0.8 });
+          state.params.minSpanKm = 1.2;
+          state.params.maxSpanKm = 14;
+        } else if (reg === 'budec-slany') {
+          map.flyTo([50.19, 14.22], 12, { duration: 0.8 });
+          state.params.minSpanKm = 1.5;
+          state.params.maxSpanKm = 15;
+        }
+
+        document.getElementById('minSpanSlider').value = state.params.minSpanKm;
+        document.getElementById('minSpanLabel').textContent = `${state.params.minSpanKm} km`;
+        document.getElementById('maxSpanSlider').value = state.params.maxSpanKm;
+        document.getElementById('maxSpanLabel').textContent = `${state.params.maxSpanKm} km`;
+
+        state.patterns = runGeometricDetection(state.filteredPoints, state.params);
+        state.activePatternId = state.patterns.length ? state.patterns[0].id : null;
+        renderResultsList();
+        renderPatternsOnMap();
+        switchTab('results');
+      });
+    });
+
+    // Časové posuvníky
+    const minYearSlider = document.getElementById('minYearSlider');
+    const maxYearSlider = document.getElementById('maxYearSlider');
+
+    function updateYearFilter() {
+      let minV = parseInt(minYearSlider.value, 10);
+      let maxV = parseInt(maxYearSlider.value, 10);
+      if (minV > maxV) [minV, maxV] = [maxV, minV];
+      state.filters.minYear = minV;
+      state.filters.maxYear = maxV;
+      document.getElementById('minYearVal').textContent = minV;
+      document.getElementById('maxYearVal').textContent = maxV;
+      document.getElementById('yearRangeLabel').textContent = `${minV} – ${maxV}`;
+      applyFilters();
+    }
+
+    minYearSlider.addEventListener('input', updateYearFilter);
+    maxYearSlider.addEventListener('input', updateYearFilter);
+
+    document.querySelectorAll('.epoch-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const [a, b] = btn.dataset.epoch.split('-').map(Number);
+        minYearSlider.value = a;
+        maxYearSlider.value = b;
+        updateYearFilter();
+      });
+    });
+
+    document.querySelectorAll('.style-filter').forEach(chk => {
+      chk.addEventListener('change', () => {
+        if (chk.checked) state.filters.styles.add(chk.value);
+        else state.filters.styles.delete(chk.value);
+        applyFilters();
+      });
+    });
+
+    document.getElementById('resetAffiliationBtn').addEventListener('click', () => {
+      state.filters.selectedAffiliations.clear();
+      renderFacetPills();
+      applyFilters();
+    });
+
+    document.getElementById('resetDedicationBtn').addEventListener('click', () => {
+      state.filters.selectedDedications.clear();
+      state.filters.dedicationSearch = '';
+      document.getElementById('searchDedicationInput').value = '';
+      renderFacetPills();
+      applyFilters();
+    });
+
+    document.getElementById('searchDedicationInput').addEventListener('input', (e) => {
+      state.filters.dedicationSearch = e.target.value;
+      renderFacetPills();
+    });
+
+    document.getElementById('searchPointInput').addEventListener('input', (e) => {
+      state.filters.search = e.target.value;
+      applyFilters();
+    });
+
+    // Posuvník protažení linií – okamžité překreslení v mapě i seznamu výsledků
+    document.getElementById('lineExtSlider').addEventListener('input', (e) => {
+      state.params.lineExtensionKm = parseInt(e.target.value, 10);
+      document.getElementById('lineExtLabel').textContent = `${state.params.lineExtensionKm} km`;
+      renderPatternsOnMap();
+      renderResultsList();
+    });
+
+    // Parametry detekce
+    document.getElementById('tolDistSlider').addEventListener('input', (e) => {
+      state.params.tolDist = parseInt(e.target.value, 10);
+      document.getElementById('tolDistLabel').textContent = `${state.params.tolDist} m`;
+    });
+    document.getElementById('tolAngleSlider').addEventListener('input', (e) => {
+      state.params.tolAngle = parseFloat(e.target.value);
+      document.getElementById('tolAngleLabel').textContent = `± ${state.params.tolAngle.toFixed(1)}°`;
+    });
+    document.getElementById('tolTriSlider').addEventListener('input', (e) => {
+      state.params.tolTriPct = parseFloat(e.target.value);
+      document.getElementById('tolTriLabel').textContent = `± ${state.params.tolTriPct.toFixed(1)} %`;
+    });
+    document.getElementById('minSpanSlider').addEventListener('input', (e) => {
+      state.params.minSpanKm = parseFloat(e.target.value);
+      document.getElementById('minSpanLabel').textContent = `${state.params.minSpanKm} km`;
+    });
+    document.getElementById('maxSpanSlider').addEventListener('input', (e) => {
+      state.params.maxSpanKm = parseFloat(e.target.value);
+      document.getElementById('maxSpanLabel').textContent = `${state.params.maxSpanKm} km`;
+    });
+
+    // Spuštění analýzy
+    document.getElementById('runAnalysisBtn').addEventListener('click', () => {
+      state.params.detectLines = document.getElementById('chkLines').checked;
+      state.params.detectCrosses = document.getElementById('chkCrosses').checked;
+      state.params.detectTriangles = document.getElementById('chkTriangles').checked;
+      state.params.detectHexagrams = document.getElementById('chkHexagrams').checked;
+      state.params.detectCircles = document.getElementById('chkCircles').checked;
+
+      if (state.filteredPoints.length < 3) {
+        showToast('Pro analýzu jsou potřeba alespoň 3 vyfiltrované stavby.', 'error');
+        return;
+      }
+
+      setStatus('Analyzuji geometrii...');
+      const t0 = performance.now();
+      state.patterns = runGeometricDetection(state.filteredPoints, state.params);
+      const dt = (performance.now() - t0).toFixed(0);
+
+      state.activePatternId = state.patterns.length ? state.patterns[0].id : null;
+      renderResultsList();
+      renderPatternsOnMap();
+      switchTab('results');
+      setStatus(`Hotovo za ${dt} ms`);
+      showToast(`Analýza dokončena: nalezeno ${state.patterns.length} obrazců.`);
+    });
+
+    document.getElementById('resultFilterSelect').addEventListener('change', renderResultsList);
+    document.getElementById('onlyThematicMatchChk').addEventListener('change', renderResultsList);
+
+    document.getElementById('showAllPatternsBtn').addEventListener('click', (e) => {
+      state.showAllPatterns = !state.showAllPatterns;
+      e.target.classList.toggle('bg-amber-500', state.showAllPatterns);
+      e.target.classList.toggle('text-gis-950', state.showAllPatterns);
+      e.target.classList.toggle('font-bold', state.showAllPatterns);
+      renderPatternsOnMap();
+    });
+
+    document.getElementById('fileImportInput').addEventListener('change', handleFileImport);
+    document.getElementById('exportPatternsBtn').addEventListener('click', exportPatternsGeoJSON);
+    document.getElementById('exportGpxBtn').addEventListener('click', exportPatternsGPX);
+
+    document.getElementById('mcIterSlider').addEventListener('input', (e) => {
+      document.getElementById('mcIterLabel').textContent = `${e.target.value} iterací`;
+    });
+    document.getElementById('runMonteCarloBtn').addEventListener('click', runMonteCarloSimulation);
+
+    // Ruční měření
+    document.getElementById('toggleMeasureBtn').addEventListener('click', (e) => {
+      state.measureMode = !state.measureMode;
+      document.getElementById('measurePanel').classList.toggle('hidden', !state.measureMode);
+      e.currentTarget.classList.toggle('border-cyan-500', state.measureMode);
+      e.currentTarget.classList.toggle('text-cyan-300', state.measureMode);
+      if (!state.measureMode) {
+        measureLayer.clearLayers();
+        state.measurePoints = [];
+      }
+    });
+    document.getElementById('closeMeasureBtn').addEventListener('click', () => {
+      state.measureMode = false;
+      document.getElementById('measurePanel').classList.add('hidden');
+      document.getElementById('toggleMeasureBtn').classList.remove('border-cyan-500', 'text-cyan-300');
+      measureLayer.clearLayers();
+      state.measurePoints = [];
+    });
+    document.getElementById('clearMeasureBtn').addEventListener('click', () => {
+      state.measurePoints = [];
+      renderMeasureLayer();
+    });
+
+    // ----------------------------------------------------------------------------
+    // 14. INICIALIZACE PŘI NAČTENÍ STRÁNKY
+    // ----------------------------------------------------------------------------
+    window.addEventListener('load', () => {
+      state.allPoints = JSON.parse(JSON.stringify(PRESET_CHURCHES));
+      renderFacetPills();
+      applyFilters();
+
+      state.patterns = runGeometricDetection(state.filteredPoints, state.params);
+      if (state.patterns.length) {
+        state.activePatternId = state.patterns[0].id;
+      }
+      renderResultsList();
+      renderPatternsOnMap();
+    });
+  </script>
+</body>
+</html>
