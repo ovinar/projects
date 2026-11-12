@@ -1,8 +1,8 @@
-# 🏛️ Architektonická a Gastro Florencie: Kompletní průvodce
+# 🏛️ Florencie: Kompletní průvodce
 
 * **Posádka:** Ondřej, Ála, Cyril (15), Marie (12)
 * **Základna:** Hotel Mia Cara & Spa (*Via Faenza 90/R*, San Lorenzo)
-* **Fototechnika:** Canon EOS 50D + Samyang 8mm Fish-eye CS II
+
 * **Rodinné gastro preference:**
   * **Marie:** Pravá neapolská pizza z pece, čerstvé těstoviny (*pomodoro, gnocchi, fiocchetti*), křupavá *schiacciata*, řemeslná zmrzlina.
   * **Cyril & Ála:** Čerstvé plody moře (*fritti di mare, polpo, vongole, kalamáry*), grilované ryby.
