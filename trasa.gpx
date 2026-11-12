@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Architektonicka a Gastro Florencie - Master GPX"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3"
+     xmlns:osmand="https://osmand.net"
+     xmlns:locus="http://www.locusmap.eu">
+  <metadata>
+    <name>Florencie - Kompletní Architektura a Gastro</name>
+    <desc>Kompletní sada 45 bodů (architektura, restaurace, street food, trhy, blešák, craft beer, zmrzlina) bez čar tras.</desc>
+  </metadata>
+  <wpt lat="43.77785" lon="11.25055">
+    <name>Hotel Mia Cara &amp; Spa (Základna)</name>
+    <desc>Via Faenza 90/R. Rodinná základna, 200 m od nádraží SMN. POZOR: ZTL zóna – ihned nahlásit SPZ na recepci!</desc>
+    <sym>Hotel</sym>
+    <type>BASE</type>
+    <extensions>
+      <color>#64748b</color>
+      <osmand:color>#64748b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>LightGray</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77660" lon="11.25320">
+    <name>Mercato Centrale (1. patro Food Hall &amp; Přízemí)</name>
+    <desc>Piazza del Mercato Centrale. Otevřeno do 23:00 (G. Santarpia pizza, Il Pesce Fresco, Chianina). Přízemí ráno 7–14h (Da Nerbone).</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77610" lon="11.25360">
+    <name>Večeře: Trattoria ZàZà</name>
+    <desc>Piazza del Mercato Centrale 26/r. Živá florentská klasika – těstoviny, gnocchi, mořské plody i Bistecca alla Fiorentina.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77645" lon="11.25350">
+    <name>Večeře: Trattoria Mario</name>
+    <desc>Via Rosina 2/r. Syrová historická řeznická trattorie (dřevěné stoly, bez rezervací).</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77730" lon="11.25120">
+    <name>Pivo: Mostodolce Firenze (Craft Beer)</name>
+    <desc>Via Nazionale 114/r. Řemeslný minipivovarský pub 150 m od hotelu (vlastní toskánská nefiltrovaná piva).</desc>
+    <sym>Bar</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77640" lon="11.24790">
+    <name>Nádraží Santa Maria Novella (SMN)</name>
+    <desc>Giovanni Michelucci (1935). Vrcholný italský racionalismus/funkcionalismus, vnitřní prosklený světlík.</desc>
+    <sym>Museum</sym>
+    <type>MODERNA</type>
+    <extensions>
+      <color>#10b981</color>
+      <osmand:color>#10b981</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Green</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77440" lon="11.24940">
+    <name>Bazilika Santa Maria Novella</name>
+    <desc>Leon Battista Alberti (1470). Geometrické mramorové průčelí s volutami podle zlatého řezu.</desc>
+    <sym>Church</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77310" lon="11.25600">
+    <name>Piazza del Duomo &amp; Kupole</name>
+    <desc>Filippo Brunelleschi (1436). Samonosná zděná kupole bez lešení, Giottova zvonice a baptisterium.</desc>
+    <sym>Church</sym>
+    <type>BRUNELLESCHI</type>
+    <extensions>
+      <color>#ef4444</color>
+      <osmand:color>#ef4444</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Red</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77040" lon="11.25700">
+    <name>Bargello (Palazzo del Podestà)</name>
+    <desc>Goticko-renesanční pevnost (1255) s arkádovým nádvořím a vnějším kamenným schodištěm.</desc>
+    <sym>Museum</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77080" lon="11.25510">
+    <name>Orsanmichele</name>
+    <desc>Bývalá obilní sýpka cechů přestavěná na věžový chrám se sochami v vnějších nikách.</desc>
+    <sym>Church</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76960" lon="11.25580">
+    <name>Piazza della Signoria &amp; Uffizi</name>
+    <desc>Palazzo Vecchio, Loggia dei Lanzi a perspektivní uliční koridor Uffizi k řece Arno.</desc>
+    <sym>Museum</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76800" lon="11.25315">
+    <name>Ponte Vecchio &amp; Vasariho koridor</name>
+    <desc>Neri di Fioravante (1345). Most zlatníků se soukromou visutou chodbou Medicejských.</desc>
+    <sym>Bridge</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76740" lon="11.25000">
+    <name>Bazilika Santo Spirito (Oltrarno)</name>
+    <desc>Filippo Brunelleschi (1444). Čisté modulové renesanční trojlodí z kamene pietra serena.</desc>
+    <sym>Church</sym>
+    <type>BRUNELLESCHI</type>
+    <extensions>
+      <color>#ef4444</color>
+      <osmand:color>#ef4444</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Red</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76520" lon="11.25000">
+    <name>Palazzo Pitti (Průčelí a nádvoří)</name>
+    <desc>Monumentální kyklopská rustika rezidence toskánských vévodů (pohled z náměstí zdarma).</desc>
+    <sym>Museum</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76295" lon="11.26510">
+    <name>Piazzale Michelangelo &amp; San Miniato</name>
+    <desc>Giuseppe Poggi (1869). Panoramatická vyhlídková terasa na město a údolí Arna za západu slunce.</desc>
+    <sym>Scenic Area</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76860" lon="11.25880">
+    <name>Street Food: All’Antico Vinaio</name>
+    <desc>Via dei Neri 74/r. Kultovní plněné křupavé schiacciaty (lanýžové krémy, pecorino, toskánské uzeniny).</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77010" lon="11.25520">
+    <name>Street Food: I Fratellini</name>
+    <desc>Via dei Cimatori 38/r. Historická díra ve zdi (1875) – křupavé panino do ruky a víno na prkénku na ulici.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77680" lon="11.25620">
+    <name>Street Food: SandwiChic</name>
+    <desc>Via San Gallo 3/r. Klidnější alternativa s ručně krájenými toskánskými uzeninami a sýry.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76670" lon="11.24970">
+    <name>Oběd: Gusta Pizza (Oltrarno)</name>
+    <desc>Via Maggio 46/r. Pravá neapolská pizza z pece na dřevo – rychlý servis, ideální pro Marii.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76720" lon="11.25010">
+    <name>Oběd: Osteria Santo Spirito</name>
+    <desc>Piazza Santo Spirito 16/r. Zapečené gnocchi s lanýžovým sýrem a dušené hovězí peposo.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76750" lon="11.24980">
+    <name>Oběd: Trattoria Borgo Antico</name>
+    <desc>Piazza Santo Spirito 11/r. Čerstvé mořské plody (vongole, kalamáry) pro Cyrila/Álu i steaky pro Ondřeje.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76775" lon="11.24910">
+    <name>Oběd: Trattoria La Casalinga</name>
+    <desc>Via dei Michelozzi 9/r. Rodinná domácí toskánská kuchyně fungující přes 50 let (telecí, ribollita).</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76750" lon="11.25150">
+    <name>Zmrzlina: Gelateria della Passera</name>
+    <desc>Piazza della Passera. Řemeslná zmrzlina z čistých surovin (pistácie, ovoce, fior di latte).</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76715" lon="11.24815">
+    <name>Zmrzlina: Sbrino - Gelatificio Contadino</name>
+    <desc>Via de' Serragli 32/r. Zmrzlina ze statkového mléka a toskánské granity.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76955" lon="11.24680">
+    <name>Zmrzlina: Gelateria La Carraia</name>
+    <desc>Piazza Nazario Sauro 25/r. Velkorysá italská zmrzlina u mostu s výhledem na řeku Arno.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76680" lon="11.24830">
+    <name>Pivo: Archea Brewery (Craft Beer)</name>
+    <desc>Via de' Serragli 44/r. Nezávislý craft taproom v Oltrarnu – rotující toskánské a italské speciály.</desc>
+    <sym>Bar</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77530" lon="11.25540">
+    <name>Palazzo Medici Riccardi</name>
+    <desc>Michelozzo (1444). Prototyp všech renesančních městských paláců s třístupňovou bosáží.</desc>
+    <sym>Museum</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77500" lon="11.25380">
+    <name>Bazilika San Lorenzo &amp; Cappelle Medicee</name>
+    <desc>Brunelleschi &amp; Michelangelo. Nová sakristie se slavnými Michelangelovými náhrobky Noc a Den.</desc>
+    <sym>Church</sym>
+    <type>MICHELANGELO</type>
+    <extensions>
+      <color>#8b5cf6</color>
+      <osmand:color>#8b5cf6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Magenta</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77630" lon="11.26080">
+    <name>Spedale degli Innocenti (Zrod renesance)</name>
+    <desc>Filippo Brunelleschi (1419). Oficiální počátek renesanční architektury, modulové sloupoví na Piazza SS. Annunziata.</desc>
+    <sym>Museum</sym>
+    <type>BRUNELLESCHI</type>
+    <extensions>
+      <color>#ef4444</color>
+      <osmand:color>#ef4444</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Red</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77120" lon="11.26500">
+    <name>Bleší trh: Mercato delle Pulci</name>
+    <desc>Largo Pietro Annigoni. Tradiční bleší trh se starožitnostmi a tisky (Po–So 09:00–19:30, v neděli zavřeno).</desc>
+    <sym>Shopping</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77140" lon="11.25140">
+    <name>Palazzo Strozzi</name>
+    <desc>Benedetto da Maiano (1489). Vrcholně monumentální renesanční palác s volně přístupným nádvořím.</desc>
+    <sym>Museum</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76920" lon="11.25040">
+    <name>Ponte Santa Trinita</name>
+    <desc>Bartolomeo Ammannati (1569). Plochý eliptický oblouk – nejlepší fotomísto na boční profil Ponte Vecchio.</desc>
+    <sym>Bridge</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77655" lon="11.25310">
+    <name>Pekařství: Forno San Lorenzo</name>
+    <desc>Via dell'Ariento. Ranní křupavá schiacciata se solí a rozmarýnem přímo z pece.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76895" lon="11.24540">
+    <name>Pekařství: S.Forno Panificio</name>
+    <desc>Via Santa Monaca 3/r. Řemeslné pekařství a kavárna v historickém duchu (chléb, koláče, quiche).</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77075" lon="11.26620">
+    <name>Tržnice Sant'Ambrogio &amp; Trattoria da Rocco</name>
+    <desc>Piazza Lorenzo Ghiberti. Autentická krytá tržnice (07:00–14:00) – místní těstoviny a dušená masa.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77090" lon="11.26660">
+    <name>Street Food: Il Trippaio di Sant'Ambrogio</name>
+    <desc>Piazza Lorenzo Ghiberti. Uznávaný pouliční vozík s vařeným hovězím a lampredottem u blešáku.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77125" lon="11.26690">
+    <name>Gastro: Il Cibreo Caffè</name>
+    <desc>Via Andrea del Verrocchio 5/r. Florentská kulinářská legenda Fabia Picchiho u tržnice Sant'Ambrogio.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76750" lon="11.25150">
+    <name>Večeře: Trattoria 4 Leoni</name>
+    <desc>Piazza della Passera. Hruškové taštičky fiocchetti pro Marii, chobotnice pro Cyrila/Álu, Peposo pro Ondřeje.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77180" lon="11.25080">
+    <name>Večeře: Trattoria Il Latini</name>
+    <desc>Via dei Palchetti 6/r. Legendární masité hody, šunky u stropu a poctivá Bistecca alla Fiorentina na dřevěném uhlí.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77295" lon="11.24640">
+    <name>Večeře: Trattoria Sostanza (Il Troia)</name>
+    <desc>Via del Porcellana 25/r. Historická trattorie z roku 1869 – slavné máslové kuřecí prsíčko a artyčokový koláč.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77025" lon="11.25055">
+    <name>Večeře: Ristorante Il Barretto</name>
+    <desc>Via del Parione 50/r. Klidnější elegantní podnik s vynikajícími čerstvými rybami a mořskými plody.</desc>
+    <sym>Restaurant</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.78850" lon="11.22200">
+    <name>Manifattura Tabacchi (P. L. Nervi 1936)</name>
+    <desc>Via delle Cascine. Industriální meziválečný racionalismus, dvůr volně přístupný od 7:30 ráno.</desc>
+    <sym>Museum</sym>
+    <type>MODERNA</type>
+    <extensions>
+      <color>#10b981</color>
+      <osmand:color>#10b981</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Green</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.78820" lon="11.22240">
+    <name>Snídaně: Bulli &amp; Balene (Manifattura Tabacchi)</name>
+    <desc>Nádvoří Manifattura Tabacchi. Ranní espresso a toskánské cornetti v industriálním dvoře.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77280" lon="11.21650">
+    <name>Cukrárna: Pasticceria Giorgio (Soffiano)</name>
+    <desc>Via Duccio di Buoninsegna 36. Slavná Schiacciata alla Fiorentina plněná šlehačkou na cestu domů.</desc>
+    <sym>Fast Food</sym>
+    <type>GASTRO</type>
+    <extensions>
+      <color>#f59e0b</color>
+      <osmand:color>#f59e0b</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>DarkYellow</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.82980" lon="11.15420">
+    <name>Chiesa dell'Autostrada (Michelucci 1964)</name>
+    <desc>Uzel A1/A11 Firenze Nord. Brutalistický chrám z litého betonu a kamene (otevírá v 9:00, parkování u chrámu).</desc>
+    <sym>Church</sym>
+    <type>MODERNA</type>
+    <extensions>
+      <color>#10b981</color>
+      <osmand:color>#10b981</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Green</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+</gpx>
