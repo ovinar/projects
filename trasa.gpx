@@ -503,4 +503,70 @@
       <gpxx:WaypointExtension><gpxx:DisplayColor>Green</gpxx:DisplayColor></gpxx:WaypointExtension>
     </extensions>
   </wpt>
+<wpt lat="43.76855" lon="11.26230">
+    <name>Santa Croce &amp; Cappella dei Pazzi (Brunelleschi)</name>
+    <desc>Piazza di Santa Croce. Františkánská bazilika a v křížové chodbě Brunelleschiho kaple Pazziů (vrchol renesanční geometrie v pietra serena).</desc>
+    <sym>Church</sym>
+    <type>BRUNELLESCHI</type>
+    <extensions>
+      <color>#ef4444</color>
+      <osmand:color>#ef4444</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Red</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.76715" lon="11.26215">
+    <name>Biblioteca Nazionale Centrale</name>
+    <desc>Piazza dei Cavalleggeri. Monumentální státní knihovna (Cesare Bazzani, 1911–1935) na nábřeží řeky Arno.</desc>
+    <sym>Museum</sym>
+    <type>MODERNA</type>
+    <extensions>
+      <color>#10b981</color>
+      <osmand:color>#10b981</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Green</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77135" lon="11.26540">
+    <name>Loggia del Pesce (Giorgio Vasari 1568)</name>
+    <desc>Largo Pietro Annigoni. Renesanční arkádová rybí tržnice přenesená od Ponte Vecchio přímo k blešímu trhu.</desc>
+    <sym>Museum</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77315" lon="11.26675">
+    <name>Velká synagoga (Tempio Israelitico)</name>
+    <desc>Via Luigi Carlo Farini 6. Výrazná stavba z roku 1882 s zelenou měděnou kupolí a bohatou maursko-byzantskou fasádou.</desc>
+    <sym>Church</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77345" lon="11.26105">
+    <name>Teatro della Pergola (1656)</name>
+    <desc>Via della Pergola 12. Nejstarší dochované lóžové divadlo v Itálii (Ferdinando Tacca).</desc>
+    <sym>Museum</sym>
+    <type>ALBERTI</type>
+    <extensions>
+      <color>#3b82f6</color>
+      <osmand:color>#3b82f6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Blue</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
+  <wpt lat="43.77015" lon="11.26365">
+    <name>Casa Buonarroti (Michelangelo)</name>
+    <desc>Via Ghibellina 70. Rodinný palác Michelangela s jeho ranými reliéfy a architektonickými nákresy.</desc>
+    <sym>Museum</sym>
+    <type>MICHELANGELO</type>
+    <extensions>
+      <color>#8b5cf6</color>
+      <osmand:color>#8b5cf6</osmand:color>
+      <gpxx:WaypointExtension><gpxx:DisplayColor>Magenta</gpxx:DisplayColor></gpxx:WaypointExtension>
+    </extensions>
+  </wpt>
 </gpx>
