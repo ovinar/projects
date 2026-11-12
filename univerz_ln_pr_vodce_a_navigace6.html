@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>Průvodce a Navigace</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: #1e293b;
+      --card-bg: #334155;
+      --card-hover: #475569;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --accent-blue: #0284c7;
+      --accent-blue-hover: #0369a1;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TOP WARNING BANNER FOR GOOGLE SITES IFRAME */
+    #iframeWarningBanner {
+      display: none;
+      background: #b45309;
+      color: #fef3c7;
+      padding: 8px 12px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      text-align: center;
+      border-bottom: 1px solid #d97706;
+      flex-shrink: 0;
+      z-index: 1500;
+    }
+    #iframeWarningBanner a {
+      color: #ffffff;
+      text-decoration: underline;
+      margin-left: 6px;
+      font-weight: 700;
+    }
+
+    /* TOP HEADER */
+    header {
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 1100;
+      flex-shrink: 0;
+    }
+
+    .header-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .title-group h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-actions-scroll {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .header-actions-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .btn {
+      padding: 6px 11px;
+      border-radius: 8px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      text-decoration: none;
+      color: var(--text-main);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-height: 34px;
+      touch-action: manipulation;
+    }
+
+    .btn-primary { background-color: var(--accent-blue); color: white; }
+    .btn-primary:active { background-color: var(--accent-blue-hover); }
+
+    .btn-secondary { background-color: var(--card-bg); border-color: var(--border-color); }
+    .btn-secondary:active { background-color: var(--card-hover); }
+
+    .btn-gps { background-color: #0369a1; color: #e0f2fe; border-color: #0284c7; }
+    .btn-gps.active {
+      background-color: #0284c7;
+      color: white;
+      box-shadow: 0 0 10px #38bdf8;
+    }
+
+    .btn-danger { background-color: #991b1b; color: #fecaca; border-color: #b91c1c; }
+    .btn-danger:active { background-color: #dc2626; color: white; }
+
+    /* TOAST */
+    #statusToast {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 440px;
+      background: #10b981;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 3000;
+      text-align: center;
+      pointer-events: none;
+    }
+    #statusToast.error { background: #ef4444; }
+
+    /* MAIN BODY LAYOUT */
+    .app-body {
+      display: flex;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* SIDEBAR / STOPS VIEW */
+    .sidebar {
+      width: 420px;
+      min-width: 320px;
+      background-color: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 900;
+      height: 100%;
+    }
+
+    .sidebar-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: rgba(15, 23, 42, 0.4);
+    }
+
+    .sidebar-header h2 {
+      font-size: 0.86rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .counter-badge {
+      background-color: var(--card-bg);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .tabs-bar {
+      display: flex;
+      background-color: var(--bg-dark);
+      border-bottom: 1px solid var(--border-color);
+      padding: 5px;
+      gap: 5px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .tabs-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-width: 85px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+      touch-action: manipulation;
+    }
+
+    .tab-btn.active {
+      background-color: var(--panel-bg);
+      color: var(--text-main);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    .stops-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .empty-state {
+      padding: 50px 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+    .empty-state h3 {
+      font-size: 1.05rem;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .empty-state p {
+      font-size: 0.8rem;
+      line-height: 1.45;
+      margin-bottom: 16px;
+    }
+
+    /* STOP CARD */
+    .stop-card {
+      background-color: var(--card-bg);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 11px 12px;
+      cursor: pointer;
+      display: flex;
+      gap: 11px;
+      align-items: flex-start;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .stop-card:active {
+      background-color: var(--card-hover);
+    }
+
+    .stop-card.active {
+      border-color: var(--accent-blue);
+      background-color: rgba(2, 132, 199, 0.15);
+    }
+
+    .stop-badge {
+      min-width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: white;
+      margin-top: 1px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .stop-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .stop-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .stop-author {
+      font-size: 0.66rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .stop-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin-top: 3px;
+    }
+
+    .stop-meta {
+      font-size: 0.73rem;
+      color: #38bdf8;
+      margin-top: 5px;
+      line-height: 1.35;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      padding: 7px 12px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background-color: #0f172a;
+      color: #38bdf8;
+      border: 1px solid #0284c7;
+      min-height: 36px;
+      touch-action: manipulation;
+    }
+    .nav-btn:active {
+      background-color: #0284c7;
+      color: white;
+    }
+
+    .nav-btn-mapy {
+      color: #4ade80;
+      border-color: #16a34a;
+    }
+    .nav-btn-mapy:active {
+      background-color: #16a34a;
+      color: white;
+    }
+
+    /* MAP CONTAINER */
+    #map {
+      flex: 1;
+      height: 100%;
+      background-color: #1e293b;
+    }
+
+    /* GPS PULSE MARKER */
+    .user-gps-marker {
+      width: 18px;
+      height: 18px;
+      background: #0284c7;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(2, 132, 199, 0.9);
+      animation: pulse-gps 2s infinite;
+    }
+    @keyframes pulse-gps {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
+      70% { transform: scale(1.15); box-shadow: 0 0 0 16px rgba(14, 165, 233, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+    }
+
+    /* LEAFLET POPUP */
+    .leaflet-popup-content-wrapper {
+      background-color: var(--panel-bg);
+      color: var(--text-main);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+      padding: 2px;
+    }
+    .leaflet-popup-tip {
+      background-color: var(--panel-bg);
+    }
+    .popup-content h3 {
+      font-size: 0.96rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .popup-author {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      color: white;
+    }
+    .popup-desc {
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+    .popup-tip {
+      font-size: 0.74rem;
+      background-color: var(--bg-dark);
+      padding: 6px 9px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent-blue);
+      color: #93c5fd;
+      margin-bottom: 8px;
+    }
+
+    /* MOBILE BOTTOM TAB BAR */
+    .mobile-tab-bar {
+      display: none;
+      background-color: #0b1120;
+      border-top: 1px solid var(--border-color);
+      padding: 6px 12px calc(6px + var(--safe-bottom));
+      justify-content: space-around;
+      align-items: center;
+      z-index: 1200;
+      flex-shrink: 0;
+    }
+
+    .mobile-tab-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .mobile-tab-btn.active {
+      color: #38bdf8;
+      background-color: #1e293b;
+    }
+
+    .mobile-tab-btn .tab-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2500;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      padding: 18px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-size: 1.05rem; font-weight: 700; }
+    .modal-close {
+      background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 4px;
+    }
+    .json-editor {
+      width: 100%;
+      height: 200px;
+      background-color: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-family: monospace;
+      font-size: 0.78rem;
+      padding: 10px;
+      resize: vertical;
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 6px 10px; }
+      .title-group h1 { font-size: 0.95rem; }
+      .sidebar { width: 100%; min-width: 100%; border-right: none; display: none; }
+      .sidebar.mobile-visible { display: flex; }
+      #map { width: 100%; height: 100%; display: flex; }
+      #map.mobile-hidden { display: none; }
+      .mobile-tab-bar { display: flex; }
+      .nav-btn { flex: 1; justify-content: center; padding: 8px 10px; }
+      .card-actions { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="iframeWarningBanner">
+    <span>⚠️ Běžíte uvnitř Google Sites rámu (iframe), který blokuje GPS.</span>
+    <a id="openDirectLink" href="#" target="_blank">Otevřít přímo v plném okně ↗</a>
+  </div>
+
+  <div id="statusToast"></div>
+
+  <input type="file" id="directFileInput" accept=".json,.gpx" style="display: none;" onchange="handleDirectFile(event)">
+
+  <!-- TOP HEADER -->
+  <header>
+    <div class="header-top-row">
+      <div class="title-group">
+        <h1 id="appTitle">🗺️ Průvodce a Navigace</h1>
+      </div>
+      <button class="btn btn-gps" id="gpsToggleBtn" onclick="toggleGPS()">
+        <span>📍</span>
+        <span id="gpsBtnText">GPS</span>
+      </button>
+    </div>
+
+    <!-- Actions -->
+    <div class="header-actions-scroll">
+      <button class="btn btn-secondary" onclick="syncFromGitHub(true)">🔄 Aktualizovat z GitHubu</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('directFileInput').click()">📁 Nahrát trasu (GPX / JSON)</button>
+      <button class="btn btn-secondary" onclick="loadFlorencePreset()">🏛️ Florencie</button>
+      <button class="btn btn-secondary" onclick="openDataModal()">⚙️ Editor</button>
+      <button class="btn btn-danger" onclick="clearAllWaypoints()">🗑️ Vymazat</button>
+      <button class="btn btn-primary" onclick="exportGPX()">📍 Export GPX</button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <div class="app-body">
+    <div class="sidebar" id="sidebarPanel">
+      <div class="sidebar-header">
+        <h2>Seznam cílů</h2>
+        <span class="counter-badge" id="stopCountBadge">0 zastávek</span>
+      </div>
+
+      <div class="tabs-bar" id="tabsBar">
+        <button class="tab-btn active" onclick="setFilter('all')">Všechny body</button>
+      </div>
+
+      <div class="stops-container" id="stopsList"></div>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <!-- MOBILE BOTTOM BAR -->
+  <nav class="mobile-tab-bar">
+    <button class="mobile-tab-btn active" id="tabMobileMap" onclick="switchMobileView('map')">
+      <span class="tab-icon">🗺️</span>
+      <span>Mapa</span>
+    </button>
+    <button class="mobile-tab-btn" id="tabMobileList" onclick="switchMobileView('list')">
+      <span class="tab-icon">📋</span>
+      <span>Seznam</span>
+    </button>
+    <button class="mobile-tab-btn" id="tabMobileGps" onclick="toggleGPS()">
+      <span class="tab-icon">📍</span>
+      <span>Moje poloha</span>
+    </button>
+  </nav>
+
+  <!-- DATA EDITOR MODAL -->
+  <div class="modal-overlay" id="dataModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Editor datových souborů</h3>
+        <button class="modal-close" onclick="closeDataModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px;">Zde můžete ručně upravit nebo vložit JSON strukturu waypointů:</p>
+        <textarea class="json-editor" id="jsonTextArea" placeholder="Vkládám JSON..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" onclick="clearAllWaypoints()">Vyprázdnit vše</button>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-secondary" onclick="exportJSON()">Stáhnout JSON</button>
+          <button class="btn btn-primary" onclick="applyJsonFromTextarea()">Aplikovat data</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const BASE_CATEGORIES = {
+      brunelleschi: { name: "Brunelleschi", color: "#ef4444" },
+      michelangelo: { name: "Michelangelo", color: "#8b5cf6" },
+      renesance: { name: "Alberti & Renesance", color: "#3b82f6" },
+      moderna: { name: "Michelucci & Moderna", color: "#10b981" },
+      gastro: { name: "Trhy & Gastro", color: "#f59e0b" },
+      hotel: { name: "Základna", color: "#64748b" }
+    };
+
+    const FLORENCE_DATA = {
+      meta: { cityName: "Florencie", center: [43.7735, 11.2540], zoom: 14 },
+      categories: BASE_CATEGORIES,
+      stops: [
+        { id: "mia_cara", title: "Hotel Mia Cara & Spa (Základna)", author: "hotel", color: "#64748b", day: "Neděle", lat: 43.77785, lon: 11.25055, desc: "Via Faenza 90/R. Rodinná základna, 200 m od nádraží SMN. Zóna ZTL.", tip: "Nahlásit SPZ na recepci!" },
+        { id: "smn_station", title: "Nádraží Santa Maria Novella", author: "moderna", color: "#10b981", day: "Neděle", lat: 43.77640, lon: 11.24790, desc: "Giovanni Michelucci (1935). Vrcholný italský funkcionalismus, pískovcová horizontální fasáda.", tip: "Vnitřní prosklená hala 'skleněný vodopád'." },
+        { id: "smn_church", title: "Bazilika Santa Maria Novella", author: "renesance", color: "#3b82f6", day: "Neděle", lat: 43.77440, lon: 11.24940, desc: "Leon Battista Alberti (1470). Mramorové průčelí se slavnými volutami podle zlatého řezu.", tip: "Ortogonální čelní pohled." },
+        { id: "duomo", title: "Piazza del Duomo & Kupole", author: "brunelleschi", color: "#ef4444", day: "Neděle", lat: 43.77310, lon: 11.25600, desc: "Filippo Brunelleschi (1436). Samonosná zděná kupole bez lešení, Giottova zvonice.", tip: "Samyang 8mm z paty zvonice kolmo vzhůru." },
+        { id: "bargello", title: "Bargello (Palazzo del Podestà)", author: "renesance", color: "#3b82f6", day: "Neděle", lat: 43.77040, lon: 11.25700, desc: "Pevnostní palác z roku 1255 s arkádovým dvorem a vnějším schodištěm.", tip: "Pohled z Via del Proconsolo." },
+        { id: "orsanmichele", title: "Orsanmichele", author: "renesance", color: "#3b82f6", day: "Neděle", lat: 43.77080, lon: 11.25510, desc: "Bývalá obilní sýpka a tržnice přestavěná na věžový kostel se sochami cechů.", tip: "Všimněte si gotických kružeb v původních obloucích." },
+        { id: "signoria", title: "Piazza della Signoria & Uffizi", author: "renesance", color: "#3b82f6", day: "Neděle", lat: 43.76960, lon: 11.25580, desc: "Palazzo Vecchio, Loggia dei Lanzi a perspektivní chodba Uffizi k řece Arno.", tip: "Renesanční uliční osa." },
+        { id: "antico_vinaio", title: "All’Antico Vinaio (Gastro)", author: "gastro", color: "#f59e0b", day: "Neděle", lat: 43.76860, lon: 11.25880, desc: "Via dei Neri. Světově proslulá křupavá schiacciata (lanýže, toskánské uzeniny).", tip: "Kousek vedle historická díra ve zdi I Fratellini." },
+        { id: "ponte_vecchio", title: "Ponte Vecchio & Vasariho koridor", author: "renesance", color: "#3b82f6", day: "Neděle", lat: 43.76800, lon: 11.25315, desc: "Nejstarší most přes Arno (1345) se zlatnickými krámky a visutou chodbou.", tip: "Focení bočního profilu z mostu Santa Trinita." },
+        { id: "santo_spirito", title: "Bazilika Santo Spirito (Oltrarno)", author: "brunelleschi", color: "#ef4444", day: "Neděle", lat: 43.76740, lon: 11.25000, desc: "Brunelleschiho čisté modulové trojlodí se sloupy z šedého kamene pietra serena.", tip: "Klidné stinné náměstí na oběd." },
+        { id: "gusta_pizza", title: "Gusta Pizza (Oltrarno)", author: "gastro", color: "#f59e0b", day: "Neděle", lat: 43.76670, lon: 11.24970, desc: "Via Maggio 46/r. Skvělá neapolská pizza z pece na dřevo.", tip: "Možnost vzít i do krabice na schody baziliky." },
+        { id: "palazzo_pitti", title: "Palazzo Pitti (Průčelí)", author: "renesance", color: "#3b82f6", day: "Neděle", lat: 43.76520, lon: 11.25000, desc: "Monumentální kyklopská pískovcová rustika rezidence vévodů bez nutnosti vstupu.", tip: "Hrubá textura kamenů v odpoledním slunci." },
+        { id: "gelateria_passera", title: "Gelateria della Passera", author: "gastro", color: "#f59e0b", day: "Neděle", lat: 43.76750, lon: 11.25150, desc: "Špičková řemeslná zmrzlina na klidném malém náměstíčku.", tip: "Čistá pistácie a sorbety." },
+        { id: "piazzale_michelangelo", title: "Piazzale Michelangelo", author: "renesance", color: "#3b82f6", day: "Neděle", lat: 43.76295, lon: 11.26510, desc: "Panoramatická terasa na celé údolí řeky Arno za nízkého odpoledního slunce.", tip: "Nejlepší světlo na Brunelleschiho kupoli." },
+        { id: "mercato_centrale_prizemi", title: "Mercato Centrale (Přízemí)", author: "gastro", color: "#f59e0b", day: "Pondělí", lat: 43.77660, lon: 11.25320, desc: "Tradiční ranní trh: toskánské sýry, lanýže, uzeniny a kultovní stánek Da Nerbone (od 1874).", tip: "Vařené hovězí panino con bollito." },
+        { id: "palazzo_medici", title: "Palazzo Medici Riccardi", author: "renesance", color: "#3b82f6", day: "Pondělí", lat: 43.77530, lon: 11.25540, desc: "Michelozzo (1444). Prototyp všech renesančních městských paláců s třístupňovou bosáží.", tip: "Přímo naproti San Lorenzo." },
+        { id: "san_lorenzo", title: "San Lorenzo & Cappelle Medicee", author: "michelangelo", color: "#8b5cf6", day: "Pondělí", lat: 43.77500, lon: 11.25380, desc: "Farní chrám Medicejských a Nová sakristie se slavnými Michelangelovými náhrobky Noc a Den.", tip: "Práce s vertikálním prostorem." },
+        { id: "spedale_innocenti", title: "Spedale degli Innocenti", author: "brunelleschi", color: "#ef4444", day: "Pondělí", lat: 43.77630, lon: 11.26080, desc: "Brunelleschi (1419) – oficiální počátek renesanční architektury. První modulové arkády.", tip: "Piazza SS. Annunziata." },
+        { id: "mercato_pulci", title: "Mercato delle Pulci (Blešák)", author: "gastro", color: "#f59e0b", day: "Pondělí", lat: 43.77120, lon: 11.26500, desc: "Largo Pietro Annigoni. Tradiční florentský bleší trh se starožitnostmi a historickými tisky.", tip: "Autentická čtvrť Sant'Ambrogio." },
+        { id: "palazzo_strozzi", title: "Palazzo Strozzi", author: "renesance", color: "#3b82f6", day: "Pondělí", lat: 43.77140, lon: 11.25140, desc: "Nejmohutnější renesanční palácové sídlo s volně přístupným arkádovým dvorem.", tip: "Čistá geometrie sloupoví." },
+        { id: "ponte_santa_trinita", title: "Ponte Santa Trinita", author: "renesance", color: "#3b82f6", day: "Pondělí", lat: 43.76920, lon: 11.25040, desc: "Ammannati (1569). Plochý eliptický oblouk s nejlepším pohledem na Ponte Vecchio.", tip: "Ikonické fotomísto." },
+        { id: "manifattura_tabacchi", title: "Manifattura Tabacchi (Nervi 1936)", author: "moderna", color: "#10b981", day: "Úterý", lat: 43.78850, lon: 11.22200, desc: "Bývalá tabáková továrna, industriální meziválečný racionalismus. Dvůr přístupný od 7:30 ráno.", tip: "Ranní káva před odjezdem na dálnici." },
+        { id: "chiesa_autostrada", title: "Chiesa dell'Autostrada (Michelucci)", author: "moderna", color: "#10b981", day: "Úterý", lat: 43.82980, lon: 11.15420, desc: "Sjezd A1 Firenze Nord. Poválečný sakrální brutalismus z litého betonu a kamene se stanovou střechou.", tip: "Ranní světlo v 9:00. Parkování přímo u chrámu." }
+      ]
+    };
+
+    const STORAGE_KEY = "universal_travel_guide_data_v6";
+    let currentData = { meta: { cityName: "Vlastní mapa", center: [43.7735, 11.2540], zoom: 13 }, categories: BASE_CATEGORIES, stops: [] };
+    let currentFilter = 'all';
+    let map = null, markersLayer = null;
+    let markerMap = new Map();
+    let userLocationMarker = null, userAccuracyCircle = null, gpsWatchId = null;
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('statusToast');
+      toast.innerText = msg;
+      toast.className = isError ? 'error' : '';
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    }
+
+    function detectIframeEnvironment() {
+      const isIframe = window.self !== window.top;
+      if (isIframe) {
+        const banner = document.getElementById('iframeWarningBanner');
+        const link = document.getElementById('openDirectLink');
+        banner.style.display = 'block';
+        link.href = window.location.href;
+      }
+    }
+
+    function clearAllWaypoints() {
+      const confirmed = window.confirm("Opravdu chcete smazat všechny waypointy z mapy a seznamu?\n\nTato akce vyprázdní celou aktuální trasu i paměť.");
+      if (!confirmed) return;
+
+      currentData.stops = [];
+      currentData.meta.cityName = "Čistá mapa (bez bodů)";
+      
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+
+      renderUI();
+      closeDataModal();
+      showToast("🗑️ Všechny waypointy byly smazány. Mapa je prázdná.");
+    }
+
+    function loadFlorencePreset() {
+      currentData = JSON.parse(JSON.stringify(FLORENCE_DATA));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(currentData));
+      } catch (e) {}
+      if (map) map.setView(currentData.meta.center, currentData.meta.zoom);
+      renderUI();
+      showToast("🏛️ Byla načtena kompletní Florencie.");
+    }
+
+    function initMap() {
+      detectIframeEnvironment();
+
+      if (!map) {
+        map = L.map('map', { zoomControl: false }).setView([43.7735, 11.2540], 14);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles &copy; Esri', maxZoom: 19
+        });
+        const osmfr = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+          attribution: '&copy; OSM France', maxZoom: 19
+        });
+
+        esri.addTo(map);
+
+        L.control.layers({
+          "Esri Street (Standardní)": esri,
+          "OSM Francie (Detailní)": osmfr
+        }, null, { position: 'topright' }).addTo(map);
+
+        markersLayer = L.layerGroup().addTo(map);
+      }
+
+      // Automaticky stáhne trasa.gpx z GitHubu (pokud tam existuje)
+      syncFromGitHub(false);
+    }
+
+    async function syncFromGitHub(manual = false) {
+      try {
+        // Parametr ?t=... obejde mezipaměť prohlížeče a vždy stáhne nejčerstvější soubor z GitHubu
+        const response = await fetch('trasa.gpx?t=' + Date.now());
+        if (!response.ok) {
+          throw new Error('Soubor trasa.gpx zatím není na serveru.');
+        }
+        const gpxText = await response.text();
+        parseAndLoadGPX(gpxText, 'Aktuální trasa (GitHub)', true);
+        if (manual) {
+          showToast('🔄 Data byla úspěšně aktualizována z GitHubu.');
+        }
+      } catch (err) {
+        if (manual) {
+          showToast('⚠️ Soubor trasa.gpx nebyl na GitHubu nalezen.', true);
+        } else {
+          // Záložní načtení z paměti mobilu nebo výchozí Florencie
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (parsed && Array.isArray(parsed.stops)) {
+                currentData = parsed;
+              }
+            } else {
+              currentData = JSON.parse(JSON.stringify(FLORENCE_DATA));
+            }
+          } catch (e) {
+            currentData = JSON.parse(JSON.stringify(FLORENCE_DATA));
+          }
+          if (map && currentData.meta?.center) {
+            map.setView(currentData.meta.center, currentData.meta.zoom || 14);
+          }
+          renderUI();
+        }
+      }
+    }
+
+    function switchMobileView(view) {
+      const mapEl = document.getElementById('map');
+      const sidebarEl = document.getElementById('sidebarPanel');
+      const btnMap = document.getElementById('tabMobileMap');
+      const btnList = document.getElementById('tabMobileList');
+
+      if (view === 'map') {
+        mapEl.classList.remove('mobile-hidden');
+        sidebarEl.classList.remove('mobile-visible');
+        btnMap.classList.add('active');
+        btnList.classList.remove('active');
+        setTimeout(() => map && map.invalidateSize(), 200);
+      } else {
+        mapEl.classList.add('mobile-hidden');
+        sidebarEl.classList.add('mobile-visible');
+        btnMap.classList.remove('active');
+        btnList.classList.add('active');
+      }
+    }
+
+    // ROBUSTNÍ MOBILNÍ GPS S DETEKCÍ GOOGLE SITES IFRAME
+    function toggleGPS() {
+      const btn = document.getElementById('gpsToggleBtn');
+      const btnText = document.getElementById('gpsBtnText');
+      const mobileGpsBtn = document.getElementById('tabMobileGps');
+
+      if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+        if (userLocationMarker) map.removeLayer(userLocationMarker);
+        if (userAccuracyCircle) map.removeLayer(userAccuracyCircle);
+        userLocationMarker = null;
+        userAccuracyCircle = null;
+        btn.classList.remove('active');
+        if (mobileGpsBtn) mobileGpsBtn.classList.remove('active');
+        btnText.innerText = "GPS";
+        showToast("Sledování polohy vypnuto.");
+        return;
+      }
+
+      // Detekce Google Sites iframe restrikce
+      if (window.self !== window.top) {
+        alert("⚠️ CHYBA OPRÁVNĚNÍ (GOOGLE SITES):\n\nGoogle Sites vkládá kód do zabezpečeného rámu (iframe) bez povoleného atributu allow='geolocation'. Prohlížeč v mobilu proto geolokaci striktně zablokuje.\n\nŘEŠENÍ:\n1. Otevřete tento HTML soubor samostatně mimo Google Sites (např. přes GitHub Pages, Vercel, Netlify nebo přímo odkazem).\n2. Pro navigaci k cílům použijte tlačítka '🧭 Nativní Navigace' nebo '🗺️ Mapy.cz', která spustí aplikaci v mobilu bez omezení.");
+        return;
+      }
+
+      if (window.location.protocol === 'file:') {
+        alert("⚠️ UPOZORNĚNÍ PRO MOBIL:\n\nSoubor je otevřen jako 'file://'. Mobilní prohlížeč blokuje GPS u lokálních HTML souborů bez HTTPS webového serveru.");
+        return;
+      }
+
+      if (!("geolocation" in navigator)) {
+        showToast("Zařízení nepodporuje GPS.", true);
+        return;
+      }
+
+      btnText.innerText = "Zaměřuji...";
+
+      const onLocationSuccess = (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const acc = pos.coords.accuracy;
+
+        btn.classList.add('active');
+        if (mobileGpsBtn) mobileGpsBtn.classList.add('active');
+        btnText.innerText = "Aktivní";
+
+        if (window.innerWidth <= 768 && !userLocationMarker) {
+          switchMobileView('map');
+        }
+
+        if (!userLocationMarker) {
+          const gpsIcon = L.divIcon({
+            className: 'user-gps-container',
+            html: '<div class="user-gps-marker"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+
+          userLocationMarker = L.marker([lat, lon], { icon: gpsIcon, zIndexOffset: 2000 }).addTo(map);
+          userAccuracyCircle = L.circle([lat, lon], { radius: acc, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.15, weight: 1 }).addTo(map);
+          map.flyTo([lat, lon], Math.max(map.getZoom(), 15));
+          showToast(`GPS zaměřena (přesnost ±${Math.round(acc)} m)`);
+        } else {
+          userLocationMarker.setLatLng([lat, lon]);
+          if (userAccuracyCircle) {
+            userAccuracyCircle.setLatLng([lat, lon]);
+            userAccuracyCircle.setRadius(acc);
+          }
+        }
+      };
+
+      const onLocationError = (err) => {
+        console.warn("GPS chyba:", err);
+        navigator.geolocation.getCurrentPosition(
+          onLocationSuccess,
+          (err2) => {
+            btn.classList.remove('active');
+            if (mobileGpsBtn) mobileGpsBtn.classList.remove('active');
+            btnText.innerText = "GPS";
+            gpsWatchId = null;
+
+            if (err2.code === 1) {
+              alert("⚠️ Povolení k poloze bylo zamítnuto prohlížečem nebo systémem.\n\nV nastavení telefonu povolte prohlížeči přístup k poloze (Nastavení -> Aplikace -> Chrome/Safari -> Oprávnění -> Poloha).");
+            } else if (err2.code === 2) {
+              showToast("Signál GPS není dostupný.", true);
+            } else {
+              showToast(`GPS vypršela: ${err2.message}`, true);
+            }
+          },
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+        );
+      };
+
+      gpsWatchId = navigator.geolocation.watchPosition(
+        onLocationSuccess,
+        onLocationError,
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+      );
+    }
+
+    function getNavUrls(lat, lon, title) {
+      const enc = encodeURIComponent(title || "Bod");
+      return {
+        geo: `geo:${lat},${lon}?q=${lat},${lon}(${enc})`,
+        google: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`,
+        mapy: `https://mapy.cz/zakladni?q=${lat},${lon}&source=coor`
+      };
+    }
+
+    function getPointColor(stop) {
+      if (stop.color && typeof stop.color === 'string' && stop.color.startsWith('#')) {
+        return stop.color;
+      }
+      const catKey = (stop.author || '').toLowerCase();
+      if (currentData.categories && currentData.categories[catKey] && currentData.categories[catKey].color) {
+        return currentData.categories[catKey].color;
+      }
+      if (BASE_CATEGORIES[catKey] && BASE_CATEGORIES[catKey].color) {
+        return BASE_CATEGORIES[catKey].color;
+      }
+      return "#0284c7";
+    }
+
+    function renderUI() {
+      if (!markersLayer) return;
+      markersLayer.clearLayers();
+      markerMap.clear();
+
+      const list = document.getElementById('stopsList');
+      list.innerHTML = '';
+
+      document.getElementById('appTitle').innerText = `🗺️ ${currentData.meta?.cityName || 'Průvodce'}`;
+
+      const stops = currentData.stops || [];
+
+      const uniqueDays = [...new Set(stops.map(s => s.day).filter(Boolean))];
+      const tabsBar = document.getElementById('tabsBar');
+      tabsBar.innerHTML = `<button class="tab-btn ${currentFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">Všechny (${stops.length})</button>`;
+      
+      uniqueDays.forEach(day => {
+        const count = stops.filter(s => s.day === day).length;
+        const btn = document.createElement('button');
+        btn.className = `tab-btn ${currentFilter === day ? 'active' : ''}`;
+        btn.innerText = `${day} (${count})`;
+        btn.onclick = () => setFilter(day);
+        tabsBar.appendChild(btn);
+      });
+
+      const filtered = stops.filter(s => {
+        if (currentFilter === 'all') return true;
+        return s.day === currentFilter;
+      });
+
+      document.getElementById('stopCountBadge').innerText = `${filtered.length} z ${stops.length}`;
+
+      if (stops.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <h3>Žádné waypointy</h3>
+            <p>Seznam je prázdný. Nahrajte soubor <strong>GPX</strong> nebo <strong>JSON</strong> s body zájmu.</p>
+            <button class="btn btn-primary" style="margin: 0 auto;" onclick="document.getElementById('directFileInput').click()">📁 Nahrát trasu</button>
+          </div>
+        `;
+        document.getElementById('jsonTextArea').value = JSON.stringify(currentData, null, 2);
+        return;
+      }
+
+      filtered.forEach((stop, idx) => {
+        const itemColor = getPointColor(stop);
+        const catName = (currentData.categories && currentData.categories[stop.author]?.name) || stop.author || "Cíl";
+        const nav = getNavUrls(stop.lat, stop.lon, stop.title);
+
+        const pinIcon = L.divIcon({
+          className: 'custom-pin',
+          html: `<div style="background-color: ${itemColor}; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${idx + 1}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+
+        const marker = L.marker([stop.lat, stop.lon], { icon: pinIcon });
+        const popupContent = `
+          <div class="popup-content">
+            <span class="popup-author" style="background-color: ${itemColor};">${stop.day ? stop.day + ' • ' : ''}${catName}</span>
+            <h3>${stop.title || 'Bod'}</h3>
+            <p class="popup-desc">${stop.desc || ''}</p>
+            ${stop.tip ? `<div class="popup-tip">📷 <strong>Tip:</strong> ${stop.tip}</div>` : ''}
+            <div class="card-actions" style="margin-top:6px;">
+              <a href="${nav.google}" target="_blank" class="nav-btn" style="border-color:#38bdf8;">🧭 Google Mapy</a>
+              <a href="${nav.mapy}" target="_blank" class="nav-btn nav-btn-mapy">🗺️ Mapy.cz</a>
+            </div>
+          </div>
+        `;
+        marker.bindPopup(popupContent);
+        marker.on('click', () => highlightStopCard(stop.id, false));
+        markersLayer.addLayer(marker);
+        markerMap.set(stop.id, marker);
+
+        const card = document.createElement('div');
+        card.className = `stop-card`;
+        card.id = `card-${stop.id}`;
+        card.onclick = (e) => {
+          if (e.target.closest('.card-actions')) return;
+          highlightStopCard(stop.id, true);
+        };
+
+        card.innerHTML = `
+          <div class="stop-badge" style="background-color: ${itemColor};">${idx + 1}</div>
+          <div class="stop-info">
+            <div class="stop-title">
+              <span>${stop.title || 'Bod'}</span>
+              <span class="stop-author" style="color: ${itemColor};">${catName}</span>
+            </div>
+            <div class="stop-desc">${stop.desc || ''}</div>
+            ${stop.tip ? `<div class="stop-meta">📷 ${stop.tip}</div>` : ''}
+            <div class="card-actions">
+              <a href="${nav.google}" target="_blank" class="nav-btn">🧭 Google Mapy</a>
+              <a href="${nav.mapy}" target="_blank" class="nav-btn nav-btn-mapy">🗺️ Mapy.cz</a>
+            </div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+
+      document.getElementById('jsonTextArea').value = JSON.stringify(currentData, null, 2);
+    }
+
+    function highlightStopCard(stopId, panMap = true) {
+      document.querySelectorAll('.stop-card').forEach(c => c.classList.remove('active'));
+      const activeCard = document.getElementById(`card-${stopId}`);
+      if (activeCard) {
+        activeCard.classList.add('active');
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      const stop = currentData.stops.find(s => s.id === stopId);
+      const marker = markerMap.get(stopId);
+      if (stop && marker && panMap) {
+        if (window.innerWidth <= 768) {
+          switchMobileView('map');
+        }
+        map.flyTo([stop.lat, stop.lon], 16, { duration: 0.8 });
+        marker.openPopup();
+      }
+    }
+
+    function setFilter(filterName) {
+      currentFilter = filterName;
+      renderUI();
+
+      const visible = currentData.stops.filter(s => filterName === 'all' || s.day === filterName);
+      if (visible.length > 0) {
+        const bounds = L.latLngBounds(visible.map(s => [s.lat, s.lon]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      }
+    }
+
+    function handleDirectFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      processIncomingFile(file);
+      event.target.value = '';
+    }
+
+    function processIncomingFile(file) {
+      const reader = new FileReader();
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      reader.onload = function(e) {
+        const content = e.target.result;
+        if (ext === 'json') parseAndLoadJSON(content, file.name);
+        else if (ext === 'gpx') parseAndLoadGPX(content, file.name);
+        else showToast("Nepodporovaný formát. Použijte .gpx nebo .json", true);
+      };
+      reader.readAsText(file);
+    }
+
+    function parseAndLoadJSON(jsonText, fileName) {
+      try {
+        const parsed = JSON.parse(jsonText);
+        let validStops = [];
+
+        if (Array.isArray(parsed)) validStops = parsed;
+        else if (parsed.stops && Array.isArray(parsed.stops)) validStops = parsed.stops;
+        else throw new Error("JSON neobsahuje platný seznam zastávek.");
+
+        validStops = validStops.filter(s => typeof s.lat === 'number' && typeof s.lon === 'number');
+        if (validStops.length === 0) throw new Error("V souboru nejsou žádné body se souřadnicemi lat/lon.");
+
+        const lats = validStops.map(s => s.lat);
+        const lons = validStops.map(s => s.lon);
+        const cLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+        const cLon = lons.reduce((a, b) => a + b, 0) / lons.length;
+
+        currentData = {
+          meta: { cityName: parsed.meta?.cityName || fileName.replace('.json', ''), center: [cLat, cLon], zoom: 14 },
+          categories: parsed.categories || BASE_CATEGORIES,
+          stops: validStops.map((s, i) => ({
+            id: s.id || `stop_${i+1}`,
+            title: s.title || `Bod ${i+1}`,
+            author: s.author || "cil",
+            color: s.color || getPointColor(s),
+            day: s.day || "Trasa",
+            lat: s.lat, lon: s.lon,
+            desc: s.desc || "", tip: s.tip || ""
+          }))
+        };
+
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(currentData)); } catch(e) {}
+        map.setView([cLat, cLon], 14);
+        renderUI();
+        const bounds = L.latLngBounds(validStops.map(s => [s.lat, s.lon]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        closeDataModal();
+        showToast(`Načteno ${validStops.length} bodů z ${fileName}`);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    function parseAndLoadGPX(gpxText, fileName, silent = false) {
+      try {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(gpxText, "application/xml");
+        const wpts = xml.getElementsByTagName("wpt");
+
+        const newStops = [];
+
+        for (let i = 0; i < wpts.length; i++) {
+          const w = wpts[i];
+          const lat = parseFloat(w.getAttribute("lat"));
+          const lon = parseFloat(w.getAttribute("lon"));
+          if (isNaN(lat) || isNaN(lon)) continue;
+
+          const title = w.getElementsByTagName("name")[0]?.textContent || `Bod ${i+1}`;
+          const desc = w.getElementsByTagName("desc")[0]?.textContent || "";
+          const type = (w.getElementsByTagName("type")[0]?.textContent || "").toLowerCase();
+          
+          let explicitColor = "";
+          const colorTag = w.getElementsByTagName("color")[0];
+          const osmandColor = w.getElementsByTagName("osmand:color")[0];
+          const displayColor = w.getElementsByTagName("gpxx:DisplayColor")[0];
+
+          if (colorTag && colorTag.textContent.startsWith("#")) {
+            explicitColor = colorTag.textContent.trim();
+          } else if (osmandColor && osmandColor.textContent.startsWith("#")) {
+            explicitColor = osmandColor.textContent.trim();
+          } else if (displayColor) {
+            const dc = displayColor.textContent.toLowerCase();
+            if (dc.includes("red")) explicitColor = "#ef4444";
+            else if (dc.includes("blue")) explicitColor = "#3b82f6";
+            else if (dc.includes("green")) explicitColor = "#10b981";
+            else if (dc.includes("yellow") || dc.includes("orange")) explicitColor = "#f59e0b";
+            else if (dc.includes("magenta") || dc.includes("purple")) explicitColor = "#8b5cf6";
+            else if (dc.includes("gray")) explicitColor = "#64748b";
+          }
+
+          if (!explicitColor) {
+            const lower = (title + " " + desc + " " + type).toLowerCase();
+            if (lower.includes("brunelleschi") || type === "brunelleschi") explicitColor = "#ef4444";
+            else if (lower.includes("michelangelo") || type === "michelangelo") explicitColor = "#8b5cf6";
+            else if (lower.includes("modern") || lower.includes("michelucci") || type === "moderna") explicitColor = "#10b981";
+            else if (lower.includes("gastro") || lower.includes("trh") || lower.includes("pizza") || lower.includes("nerbone") || type === "gastro") explicitColor = "#f59e0b";
+            else if (lower.includes("hotel") || type === "hotel") explicitColor = "#64748b";
+            else explicitColor = "#3b82f6";
+          }
+
+          newStops.push({
+            id: `wpt_${i+1}`,
+            title: title,
+            author: type || "cil",
+            color: explicitColor,
+            day: "Trasa",
+            lat: lat, lon: lon,
+            desc: desc,
+            tip: ""
+          });
+        }
+
+        if (newStops.length === 0) {
+          throw new Error("V GPX nebyly nalezeny žádné body (<wpt>).");
+        }
+
+        const lats = newStops.map(s => s.lat);
+        const lons = newStops.map(s => s.lon);
+        const cLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+        const cLon = lons.reduce((a, b) => a + b, 0) / lons.length;
+
+        currentData = {
+          meta: { cityName: fileName.replace('.gpx', '').replace(/_/g, ' '), center: [cLat, cLon], zoom: 14 },
+          categories: BASE_CATEGORIES,
+          stops: newStops
+        };
+
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(currentData)); } catch(e) {}
+        map.setView([cLat, cLon], 14);
+        renderUI();
+        const bounds = L.latLngBounds(newStops.map(s => [s.lat, s.lon]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        closeDataModal();
+        if (!silent) {
+          showToast(`GPX načteno: ${newStops.length} barevných bodů.`);
+        }
+      } catch (err) {
+        if (!silent) {
+          showToast(err.message, true);
+        }
+      }
+    }
+
+    function openDataModal() {
+      document.getElementById('jsonTextArea').value = JSON.stringify(currentData, null, 2);
+      document.getElementById('dataModal').classList.add('open');
+    }
+    function closeDataModal() { document.getElementById('dataModal').classList.remove('open'); }
+    function applyJsonFromTextarea() {
+      parseAndLoadJSON(document.getElementById('jsonTextArea').value, "upravena_data.json");
+    }
+
+    function exportJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentData, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `${(currentData.meta?.cityName || 'trasa').toLowerCase().replace(/\s+/g, '_')}_data.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function exportGPX() {
+      let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      gpx += `<gpx version="1.1" creator="Univerzalni Pruvodce" xmlns="http://www.topografix.com/GPX/1/1">\n`;
+      gpx += `  <metadata><name>${currentData.meta?.cityName || 'Trasa'}</name></metadata>\n`;
+
+      (currentData.stops || []).forEach(s => {
+        gpx += `  <wpt lat="${s.lat}" lon="${s.lon}">\n`;
+        gpx += `    <name>${s.title}</name>\n`;
+        gpx += `    <desc>${s.desc} ${s.tip ? '| ' + s.tip : ''}</desc>\n`;
+        gpx += `    <type>${s.author || 'cil'}</type>\n`;
+        gpx += `    <extensions><color>${getPointColor(s)}</color></extensions>\n`;
+        gpx += `  </wpt>\n`;
+      });
+
+      gpx += `</gpx>`;
+
+      const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(currentData.meta?.cityName || 'trasa').toLowerCase().replace(/\s+/g, '_')}.gpx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>
